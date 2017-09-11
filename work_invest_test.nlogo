@@ -1,25 +1,16 @@
-;; create a breed of turtles that the students control through the clients
-;; there will be one student turtle for each client.
 breed [ students student ]
 
 students-own
 [
-  user-id   ;; students choose a user name when they log in whenever you receive a
-            ;; message from the student associated with this turtle hubnet-message-source
-            ;; will contain the user-id
-  step-size ;; you should have a turtle variable for every widget in the client interface that
-            ;; stores a value (sliders, choosers, and switches). You will receive a message
-            ;; from the client whenever the value changes. However, you will not be able to
-            ;; retrieve the value at will unless you store it in a variable on the server.
+  user-id
+  step-size
   poor?
   next-task
   my-timer
-  init-tick
   state
+  sugar
 ]
 
-;; the STARTUP procedure runs only once at the beginning of the model
-;; at this point you must initialize the system.
 to startup
   hubnet-reset
 end
@@ -28,33 +19,25 @@ to setup
   clear-patches
   clear-drawing
   clear-output
-  ;; during setup you do not want to kill all the turtles
-  ;; (if you do you'll lose any information you have about the clients)
-  ;; so reset any variables you want to default values, and let the clients
-  ;; know about the change if the value appears anywhere in their interface.
   ask turtles
   [
     set step-size 1
+    set poor? false
+    set next-task [-> chill]
+    set my-timer 0
+    set state "chilling"
+    set sugar 0
     hubnet-send user-id "step-size" step-size
   ]
-  ;; calling reset-ticks enables the 'go' button
   reset-ticks
 end
 
 to go
 
-  ;; process incoming messages and respond to them (if needed)
-  ;; listening for messages outside of the every block means that messages
-  ;; get processed and responded to as fast as possible
   listen-clients
-  every 1
-
+  every .1
   [
-      ask students [update-time]
-    ;; tick (and display) causes world updates messages to be sent to clients
-    ;; these types of messages should only be sent inside an every block.
-    ;; otherwise, the messages will be created as fast as possible
-    ;; and consume your bandwidth.
+    ask students [update-time]
     tick
   ]
 end
@@ -69,16 +52,9 @@ to update-time
   ]
 end
 
-;;
-;; HubNet Procedures
-;;
-
 to listen-clients
-  ;; as long as there are more messages from the clients
-  ;; keep processing them.
   while [ hubnet-message-waiting? ]
   [
-    ;; get the first message in the queue
     hubnet-fetch-message
     ifelse hubnet-enter-message? ;; when clients enter we get a special message
     [ create-new-student ]
@@ -86,59 +62,32 @@ to listen-clients
       ifelse hubnet-exit-message? ;; when clients exit we get a special message
       [ remove-student ]
       [ ask students with [user-id = hubnet-message-source]
-        [ execute-command hubnet-message-tag ] ;; otherwise the message means that the user has
-      ]                                        ;; done something in the interface hubnet-message-tag
-                                               ;; is the name of the widget that was changed
+        [ execute-command hubnet-message-tag ]
+      ]
     ]
   ]
 end
 
-;; when a new user logs in create a student turtle
-;; this turtle will store any state on the client
-;; values of sliders, etc.
 to create-new-student
   create-students 1
   [
-    ;; store the message-source in user-id now
-    ;; so when you get messages from this client
-    ;; later you will know which turtle it affects
     set user-id hubnet-message-source
     set label user-id
-    ;; initialize turtle variables to the default
-    ;; value of the corresponding widget in the client interface
     set step-size 1
     set poor? one-of [true false]
     set next-task [-> chill]
-    ;; update the clients with any information you have set
     send-info-to-clients
   ]
 end
 
-;; when a user logs out make sure to clean up the turtle
-;; that was associated with that user (so you don't try to
-;; send messages to it after it is gone) also if any other
-;; turtles of variables reference this turtle make sure to clean
-;; up those references too.
 to remove-student
   ask students with [user-id = hubnet-message-source]
   [ die ]
 end
 
-;; Other messages correspond to users manipulating the
-;; client interface, handle these individually.
 to execute-command [command]
-  ;; you should have one if statement for each widget that
-  ;; can affect the outcome of the model, buttons, sliders, switches
-  ;; choosers and the view, if the user clicks on the view you will receive
-  ;; a message with the tag "View" and the hubnet-message will be a
-  ;; two item list of the coordinates
   if command = "step-size"
   [
-    ;; note that the hubnet-message will vary depending on
-    ;; the type of widget that corresponds to the tag
-    ;; for example if the widget is a slider the message
-    ;; will be a number, of the widget is switch the message
-    ;; will be a boolean value
     set step-size hubnet-message
     stop
   ]
@@ -151,17 +100,7 @@ to execute-command [command]
   if command = "left"
   [ execute-move 270 stop ]
   if command = "work"
-  [
-    ifelse state = "working" [
-    hubnet-send user-id "message" "Already working"
-    ][
-      set state "working"
-      set my-timer 10
-      set next-task [-> work]
-      run next-task
-      hubnet-send user-id "message" "Working"
-      stop]
-    ]
+  [ work ]
   if command = "invest"
   [
     ifelse state = "investing" [
@@ -176,8 +115,6 @@ to execute-command [command]
     ]
 end
 
-;; whenever something in world changes that should be displayed in
-;; a monitor on the client send the information back to the client
 to send-info-to-clients ;; turtle procedure
   hubnet-send user-id "location" (word "(" pxcor "," pycor ")")
 end
@@ -193,7 +130,12 @@ to chill
 end
 
 to work
-
+  hubnet-send user-id "message" "Working"
+  set state "working"
+  set sugar sugar + 1
+  wait 0.1
+  hubnet-send user-id "message" "Chilling"
+  hubnet-send user-id "sugar" sugar
 end
 
 
@@ -201,9 +143,17 @@ to invest
 
 end
 
-; Public Domain:
-; To the extent possible under law, Uri Wilensky has waived all
-; copyright and related or neighboring rights to this model.
+; to execute work   ;;;;;;;;;;;;;;;work with count down
+;    ifelse state = "working" [
+;    hubnet-send user-id "message" "Already working"
+;    ][
+;      set state "working"
+;      set my-timer 10
+;      set next-task [-> work]
+;      run next-task
+;      hubnet-send user-id "message" "Working"
+;      stop]
+; end
 @#$#@#$#@
 GRAPHICS-WINDOW
 231
@@ -713,6 +663,16 @@ T
 OBSERVER
 NIL
 NIL
+
+MONITOR
+65
+397
+122
+446
+sugar
+NIL
+1
+1
 
 @#$#@#$#@
 default
