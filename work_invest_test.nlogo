@@ -3,15 +3,12 @@ breed [ students student ]
 students-own
 [
   user-id
-  step-size
   next-task
   my-timer
   state
   sugar
   investment-portion
   current-return
-;  failed?
-;  lost-rate
 ]
 
 to startup
@@ -24,24 +21,17 @@ to setup
   clear-output
   ask turtles
   [
-    set step-size 1
     set investment-portion 100
     set next-task [-> chill]
     set my-timer 0
     set state "chilling"
     set sugar one-of [5 1000]
-;    set current-return 0
-;    set failed? false
-    hubnet-send user-id "step-size" step-size
-    hubnet-send user-id "sugar" sugar
-    hubnet-send user-id "current-income" 0  ;;;;;;;current-income is not a turtle variable. it's calculated on the go
-    hubnet-send user-id "investment-portion" investment-portion
+    send-info-to-clients
   ]
   reset-ticks
 end
 
 to go
-
   listen-clients
   every .1
   [
@@ -56,10 +46,10 @@ to update-investment
       set my-timer my-timer - 1
     ][
       set next-task [-> chill]
-      hubnet-send user-id "message" "Chilling"
+      set state "chilling"
       hubnet-send user-id "current-income" round current-return
       hubnet-send user-id "sugar" round sugar
-      set state "chilling"
+      run next-task
     ]
   ]
 end
@@ -68,10 +58,10 @@ to listen-clients
   while [ hubnet-message-waiting? ]
   [
     hubnet-fetch-message
-    ifelse hubnet-enter-message? ;; when clients enter we get a special message
+    ifelse hubnet-enter-message?
     [ create-new-student ]
     [
-      ifelse hubnet-exit-message? ;; when clients exit we get a special message
+      ifelse hubnet-exit-message?
       [ remove-student ]
       [ ask students with [user-id = hubnet-message-source]
         [ execute-command hubnet-message-tag ]
@@ -85,10 +75,9 @@ to create-new-student
   [
     set user-id hubnet-message-source
     set label user-id
-    set step-size 1
-;    set failed? false
     set sugar one-of [5 1000]
     set investment-portion 100
+    set state "chilling"
     set next-task [-> chill]
     send-info-to-clients
   ]
@@ -100,24 +89,11 @@ to remove-student
 end
 
 to execute-command [command]
-  if command = "step-size"
-  [
-    set step-size hubnet-message
-    stop
-  ]
   if command = "investment-portion"
   [
     set investment-portion hubnet-message
     stop
   ]
-  if command = "up"
-  [ execute-move 0 stop ]
-  if command = "down"
-  [ execute-move 180 stop ]
-  if command = "right"
-  [ execute-move 90 stop ]
-  if command = "left"
-  [ execute-move 270 stop ]
   if command = "work"
   [ work ]
   if command = "invest"
@@ -141,17 +117,14 @@ to execute-command [command]
 end
 
 to send-info-to-clients ;; turtle procedure
-  hubnet-send user-id "location" (word "(" pxcor "," pycor ")")
-end
-
-to execute-move [new-heading]
-  set heading new-heading
-  fd step-size
-  send-info-to-clients
+  hubnet-send user-id "message" state
+  hubnet-send user-id "sugar" sugar
+  hubnet-send user-id "current-income" 0 ;;;;;;;current-income is not a turtle variable. it's calculated on the go
+  hubnet-send user-id "investment-portion" investment-portion
 end
 
 to chill
-  hubnet-send user-id "message" "chilling"
+  hubnet-send user-id "message" "Chilling"
 end
 
 to work
@@ -161,14 +134,14 @@ to work
   ifelse sugar < 1000 [
     set current-income poor-wage + welfare-amount
     set sugar sugar + current-income
-
-
   ][
     set current-income rich-wage
     set sugar sugar + current-income
   ]
   wait 0.1
-  hubnet-send user-id "message" "Chilling"
+  set state "chilling"
+  set next-task [-> chill]
+  run next-task
   hubnet-send user-id "sugar" sugar
   hubnet-send user-id "current-income" current-income
 end
@@ -179,8 +152,7 @@ to invest
   let saving sugar - investment
   ifelse investment-failure? [
     ifelse chance 50 [
-      set failed? true
-      set lost-rate 50 + random 51
+      let lost-rate 50 + random 51
       set current-return (-1 * investment * lost-rate / 100)
       ifelse saving + current-return < 0 [
         set sugar 0
