@@ -10,8 +10,8 @@ students-own
   sugar
   investment-portion
   current-return
-;  failed?
-;  lost-rate
+  failed?
+  lost-rate
 ]
 
 to startup
@@ -30,8 +30,8 @@ to setup
     set my-timer 0
     set state "chilling"
     set sugar one-of [5 1000]
-;    set current-return 0
-;    set failed? false
+    set current-return 0
+    set failed? false
     hubnet-send user-id "step-size" step-size
     hubnet-send user-id "sugar" sugar
     hubnet-send user-id "current-income" 0  ;;;;;;;current-income is not a turtle variable. it's calculated on the go
@@ -62,6 +62,8 @@ to update-investment
       set state "chilling"
     ]
   ]
+
+
 end
 
 to listen-clients
@@ -86,7 +88,7 @@ to create-new-student
     set user-id hubnet-message-source
     set label user-id
     set step-size 1
-;    set failed? false
+    set failed? false
     set sugar one-of [5 1000]
     set investment-portion 100
     set next-task [-> chill]
