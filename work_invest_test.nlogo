@@ -10,6 +10,8 @@ students-own
   sugar
   investment-portion
   current-return
+  failed?
+  lost-rate
 ]
 
 to startup
@@ -29,6 +31,7 @@ to setup
     set state "chilling"
     set sugar one-of [5 1000]
     set current-return 0
+    set failed? false
     hubnet-send user-id "step-size" step-size
     hubnet-send user-id "sugar" sugar
     hubnet-send user-id "current-income" 0  ;;;;;;;current-income is not a turtle variable. it's calculated on the go
@@ -51,11 +54,14 @@ to update-investment
   ifelse my-timer > 0 [
     set my-timer my-timer - 1
   ][
-    set next-task [-> chill]
-    set state "chilling"
-    hubnet-send user-id "message" "Chilling"
+    if failed? [hubnet-send user-id "message" word lost-rate " % investment lost"]
     hubnet-send user-id "current-income" round current-return
     hubnet-send user-id "sugar" round sugar
+    wait 1
+    set next-task [-> chill]
+    hubnet-send user-id "message" "Chilling"
+    set state "chilling"
+    set failed? false
   ]
 end
 
@@ -81,6 +87,7 @@ to create-new-student
     set user-id hubnet-message-source
     set label user-id
     set step-size 1
+    set failed? false
     set sugar one-of [5 1000]
     set investment-portion 100
     set next-task [-> chill]
@@ -167,14 +174,22 @@ end
 to invest
   let investment sugar * investment-portion / 100
   let saving sugar - investment
-  set current-return investment * investment-return / 100
   ifelse investment-failure? [
-    ifelse chance 10 [
-      set sugar saving - current-return
+    ifelse chance 50 [
+      set failed? true
+      set lost-rate 50 + random 51
+      set current-return (-1 * investment * lost-rate / 100)
+      ifelse saving + current-return < 0 [
+        set sugar 0
+      ][
+        set sugar saving + current-return
+      ]
     ][
+      set current-return investment * investment-return / 100
       set sugar saving + current-return
     ]
   ][
+    set current-return investment * investment-return / 100
     set sugar saving + current-return
   ]
 end
@@ -330,7 +345,7 @@ SWITCH
 354
 investment-failure?
 investment-failure?
-1
+0
 1
 -1000
 
