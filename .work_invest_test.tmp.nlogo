@@ -4,7 +4,6 @@ students-own
 [
   user-id
   step-size
-  poor?
   next-task
   my-timer
   state
@@ -25,12 +24,11 @@ to setup
   [
     set step-size 1
     set investment-portion 100
-    set poor? false
     set next-task [-> chill]
     set my-timer 0
     set state "chilling"
-    set sugar 1000
-;    set current-income 0
+    set sugar one-of [5 1000]
+    set current-return 0
     hubnet-send user-id "step-size" step-size
     hubnet-send user-id "sugar" sugar
     hubnet-send user-id "current-income" 0  ;;;;;;;current-income is not a turtle variable. it's calculated on the go
@@ -48,16 +46,6 @@ to go
     tick
   ]
 end
-
-;to update-time
-;  ifelse my-timer > 0 [
-;    set my-timer my-timer - 1
-;  ][
-;    set next-task [-> chill]
-;    set state "chilling"
-;    hubnet-send user-id "message" "Chilling"
-;  ]
-;end
 
 to update-investment
   ifelse my-timer > 0 [
@@ -93,7 +81,8 @@ to create-new-student
     set user-id hubnet-message-source
     set label user-id
     set step-size 1
-    set poor? one-of [true false]
+    set sugar one-of [5 1000]
+    set investment-portion 100
     set next-task [-> chill]
     send-info-to-clients
   ]
@@ -127,16 +116,22 @@ to execute-command [command]
   [ work ]
   if command = "invest"
   [
-    ifelse state = "investing" [
-    hubnet-send user-id "message" "Already investing"
+    ifelse sugar < 1000 [
+        hubnet-send user-id "message" "Min Investment 1000 Sugar"
+        wait 1
     ][
-      set state "investing"
-      set my-timer 50
-      set next-task [-> invest]
-      run next-task
-      hubnet-send user-id "message" "Investing..."
-      stop]
+      ifelse state = "investing" [
+        hubnet-send user-id "message" "Already investing"
+      ][
+        set state "investing"
+        set my-timer 50
+        set next-task [-> invest]
+        run next-task
+        hubnet-send user-id "message" "Investing..."
+        stop
+      ]
     ]
+  ]
 end
 
 to send-info-to-clients ;; turtle procedure
@@ -156,7 +151,11 @@ end
 to work
   hubnet-send user-id "message" "Working"
   set state "working"
-  set sugar sugar + 1
+  ifelse sugar < 1000 [
+    set sugar sugar + poor-wage
+  ][
+    set sugar sugar + rich-wage
+  ]
   wait 0.1
   hubnet-send user-id "message" "Chilling"
   hubnet-send user-id "sugar" sugar
@@ -167,14 +166,14 @@ to invest
   let investment sugar * investment-portion / 100
   let saving sugar - investment
   set current-return investment * investment-return / 100
-  ifelse chance 1 [
-;    set sugar saving - investment - return
-;    hubnet-send user-id "current-income" (0 - investment - return) ;;;;;; need to make this a more reasonable negative return
-;    hubnet-send user-id "sugar" sugar
+  ifelse investment-failure? [
+    ifelse chance 10 [
+      set sugar saving - current-return
+    ][
+      set sugar saving + current-return
+    ]
   ][
     set sugar saving + current-return
-;    hubnet-send user-id "current-income" return
-;    hubnet-send user-id "sugar" sugar
   ]
 end
 
@@ -185,18 +184,6 @@ to-report chance [percentage]
     report false
   ]
 end
-
-; to execute work   ;;;;;;;;;;;;;;;work with count down
-;    ifelse state = "working" [
-;    hubnet-send user-id "message" "Already working"
-;    ][
-;      set state "working"
-;      set my-timer 10
-;      set next-task [-> work]
-;      run next-task
-;      hubnet-send user-id "message" "Working"
-;      stop]
-; end
 @#$#@#$#@
 GRAPHICS-WINDOW
 231
@@ -283,7 +270,7 @@ rich-wage
 rich-wage
 25
 100
-100.0
+25.0
 5
 1
 Sugar
@@ -313,7 +300,7 @@ welfare-amount
 welfare-amount
 0
 5
-1.0
+5.0
 1
 1
 NIL
