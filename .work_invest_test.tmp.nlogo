@@ -152,6 +152,7 @@ to work
   hubnet-send user-id "message" "Working"
   set state "working"
   ifelse sugar < 1000 [
+
     set sugar sugar + poor-wage
   ][
     set sugar sugar + rich-wage
