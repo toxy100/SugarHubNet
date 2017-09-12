@@ -1,4 +1,5 @@
 breed [ students student ]
+breed [ marks mark]
 
 students-own
 [
@@ -19,41 +20,37 @@ to setup
   clear-patches
   clear-drawing
   clear-output
-  ask turtles
+  ask students
   [
     set investment-portion 100
     set next-task [-> chill]
     set my-timer 0
     set state "chilling"
     set sugar one-of [5 1000]
+    setxy ln sugar random-ycor
     send-info-to-clients
   ]
   reset-ticks
 end
 
-to go
+;********************************************
+***************Runtime Procedure************
+********************************************
 
+to go
   listen-clients
   every .1
   [
-    ask students [update-investment]
+    ask students [
+      update-investment
+    ]
     tick
   ]
 end
 
-to update-investment
-  if state = "investing" [
-    ifelse my-timer > 0 [
-      set my-timer my-timer - 1
-    ][
-      set next-task [-> chill]
-      set state "chilling"
-      hubnet-send user-id "current-income" round current-return
-      hubnet-send user-id "sugar" round sugar
-      run next-task
-    ]
-  ]
-end
+********************************************
+*************HubNet Procedures**************
+********************************************
 
 to listen-clients
   while [ hubnet-message-waiting? ]
@@ -62,7 +59,7 @@ to listen-clients
     ifelse hubnet-enter-message?
     [ create-new-student ]
     [
-      ifelse hubnet-exit-message? ;; when clients exit we get a special message
+      ifelse hubnet-exit-message?
       [ remove-student ]
       [ ask students with [user-id = hubnet-message-source]
         [ execute-command hubnet-message-tag ]
@@ -124,6 +121,10 @@ to send-info-to-clients ;; turtle procedure
   hubnet-send user-id "investment-portion" investment-portion
 end
 
+********************************************
+********************************************
+********************************************
+
 to chill
   hubnet-send user-id "message" "Chilling"
 end
@@ -147,7 +148,6 @@ to work
   hubnet-send user-id "current-income" current-income
 end
 
-
 to invest
   let investment sugar * investment-portion / 100
   let saving sugar - investment
@@ -170,6 +170,23 @@ to invest
   ]
 end
 
+to update-investment
+  if state = "investing" [
+    ifelse my-timer > 0 [
+      set my-timer my-timer - 1
+    ][
+      set next-task [-> chill]
+      set state "chilling"
+      hubnet-send user-id "current-income" round current-return
+      hubnet-send user-id "sugar" round sugar
+      run next-task
+    ]
+  ]
+end
+********************************************
+******************Utility*******************
+********************************************
+
 to-report chance [percentage]
   ifelse random 100 < percentage [
     report true
@@ -177,15 +194,37 @@ to-report chance [percentage]
     report false
   ]
 end
+
+********************************************
+****************Visualization***************
+********************************************
+
+to show-ln-grid
+    create-marks 100 [
+      set size 0
+      set color gray
+      set xcor one-of map [i -> ln i][ 1 10 100 1000 10000 100000 1000000 10000000 100000000]
+      set label round (e ^ xcor)
+      set ycor min-pycor
+      set heading 0
+      pd
+      fd max-pycor
+    ]
+end
+
+to hide-ln-grid
+  ask marks [die]
+  clear-drawing
+end
 @#$#@#$#@
 GRAPHICS-WINDOW
 231
 10
-659
-439
+732
+512
 -1
 -1
-20.0
+23.5
 1
 10
 1
@@ -195,10 +234,10 @@ GRAPHICS-WINDOW
 0
 0
 1
--10
-10
--10
-10
+0
+20
+0
+20
 1
 1
 1
@@ -324,6 +363,40 @@ investment-failure?
 0
 1
 -1000
+
+BUTTON
+5
+461
+119
+494
+NIL
+show-ln-grid
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+BUTTON
+130
+462
+239
+495
+NIL
+hide-ln-grid
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
 
 @#$#@#$#@
 ## WHAT IS IT?
@@ -635,7 +708,7 @@ need-to-manually-make-preview-for-this-model
 VIEW
 252
 10
-682
+753
 440
 0
 0
@@ -649,10 +722,10 @@ VIEW
 1
 1
 1
--10
-10
--10
-10
+0
+20
+0
+20
 
 BUTTON
 85
