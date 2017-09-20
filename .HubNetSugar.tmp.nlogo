@@ -132,8 +132,8 @@ to create-new-student
   create-students 1
   [
     set user-id hubnet-message-source
-    set label-color black
     set label user-id
+
     set color red
     refresh-turtle
     set generation 1
