@@ -5,18 +5,10 @@ globals [
 
 breed [ students student ]
 
-;turtles-own [
-;  sugar           ;; the amount of sugar this turtle has
-;  metabolism      ;; the amount of sugar that each turtles loses each tick
-;  vision          ;; the distance that this turtle can see in the horizontal and vertical directions
-;  vision-points   ;; the points that this turtle can see in relative to it's current position (based on vision)
-;  age             ;; the current age of this turtle (in ticks)
-;  max-age         ;; the age at which this turtle will die of natural causes
-;]
-
 patches-own [
   psugar           ;; the amount of sugar on this patch
   max-psugar       ;; the maximum amount of sugar that can be on this patch
+  true-color
 ]
 
 students-own
@@ -55,31 +47,11 @@ to setup
   clear-patches
   clear-drawing
   clear-output
-  ;; during setup you do not want to kill all the turtles
-  ;; (if you do you'll lose any information you have about the clients)
-  ;; so reset any variables you want to default values, and let the clients
-  ;; know about the change if the value appears anywhere in their interface.
+  setup-patches
   ask students
   [
-      move-to one-of patches with [not any? other turtles-here]
-  set sugar random-in-range minimum-sugar-endowment maximum-sugar-endowment
-;  set current-wealth random-in-range minimum-sugar-endowment maximum-sugar-endowment
-  set metabolism random-in-range 1 4
-  set max-age random-in-range 60 100
-  set age 0
-  set generation 1
-  set current-wealth 0
-  set historical-wealth 0
-  set vision random-in-range 1 6
-  ;; turtles can look horizontally and vertically up to vision patches
-  ;; but cannot look diagonally at all
-  set vision-points []
-  foreach (range 1 (vision + 1)) [ n ->
-    set vision-points sentence vision-points (list (list 0 n) (list n 0) (list 0 (- n)) (list (- n) 0))
-  ]
-;    refresh-turtle
-    set step-size 1
-    hubnet-send user-id "step-size" step-size
+    refresh-turtle
+    set generation 1
   ]
 
   if maximum-sugar-endowment <= minimum-sugar-endowment [
@@ -87,29 +59,10 @@ to setup
     stop
   ]
 
-;  create-turtles initial-population [ turtle-setup ]
   setup-patches
   update-lorenz-and-gini
   reset-ticks
 end
-
-;to turtle-setup ;; turtle procedure
-;  set color red
-;  set shape "circle"
-;  move-to one-of patches with [not any? other turtles-here]
-;  set sugar random-in-range minimum-sugar-endowment maximum-sugar-endowment
-;  set metabolism random-in-range 1 4
-;  set max-age random-in-range 60 100
-;  set age 0
-;  set vision random-in-range 1 6
-;  ;; turtles can look horizontally and vertically up to vision patches
-;  ;; but cannot look diagonally at all
-;  set vision-points []
-;  foreach (range 1 (vision + 1)) [ n ->
-;    set vision-points sentence vision-points (list (list 0 n) (list n 0) (list 0 (- n)) (list (- n) 0))
-;  ]
-;  run visualization
-;end
 
 to setup-patches
   file-open "sugar-map.txt"
@@ -117,7 +70,7 @@ to setup-patches
     ask p [
       set max-psugar file-read
       set psugar max-psugar
-      patch-recolor
+      set pcolor gray
     ]
   ]
   file-close
@@ -130,19 +83,15 @@ end
 to go
   listen-clients
   every 0.1 [
-  if not any? students [
-    stop
-  ]
-  ask patches [
-    patch-growback
-    patch-recolor
-  ]
-  ask students [
-;    turtle-move
-;    turtle-eat
-;    student-eat
+    if not any? students [
+      stop
+    ]
+    ask patches [
+      patch-growback
+      patch-recolor
+    ]
+    ask students [
       if (ticks mod 12) = 0 [set age (age + 1)]
-
       if sugar <= 0 [
         hubnet-send user-id "message" "you died due to starvation"
         refresh-turtle
@@ -150,12 +99,11 @@ to go
       if age > max-age [
         hubnet-send user-id "message" word "You died at age " age
         refresh-turtle
-    ]
+      ]
       send-info-to-clients
-;    run visualization
-  ]
-  update-lorenz-and-gini
-  tick
+    ]
+    update-lorenz-and-gini
+    tick
   ]
 end
 
@@ -183,60 +131,33 @@ end
 to create-new-student
   create-students 1
   [
-    ;; store the message-source in user-id now
-    ;; so when you get messages from this client
-    ;; later you will know which turtle it affects
     set user-id hubnet-message-source
     set label user-id
     set color red
-  set shape "circle"
-  move-to one-of patches with [not any? other turtles-here]
-  set sugar random-in-range minimum-sugar-endowment maximum-sugar-endowment
-;  set current-wealth random-in-range minimum-sugar-endowment maximum-sugar-endowment
-;    show current-wealth
-  set metabolism random-in-range 1 4
-  set max-age random-in-range 60 100
-  set age 0
-  set generation 1
-  hubnet-send user-id "message" word "You are Generation " generation
-  set current-wealth 0
-  set historical-wealth 0
-  set vision random-in-range 1 6
-  ;; turtles can look horizontally and vertically up to vision patches
-  ;; but cannot look diagonally at all
-  set vision-points []
-  foreach (range 1 (vision + 1)) [ n ->
-    set vision-points sentence vision-points (list (list 0 n) (list n 0) (list 0 (- n)) (list (- n) 0))
-  ]
-
-
-    ;; initialize turtle variables to the default
-    ;; value of the corresponding widget in the client interface
-    set step-size 1
-    ;; update the clients with any information you have set
-    send-info-to-clients
+    set shape "circle"
+    refresh-turtle
+    set generation 1
+    hubnet-send user-id "message" word "You are Generation " generation
   ]
 end
+
+;;;;;;;;;;;;;;;;
+
+;;;;;;;;;;;;;;;;;;
 
 to refresh-turtle
   move-to one-of patches with [not any? other turtles-here]
   set sugar random-in-range minimum-sugar-endowment maximum-sugar-endowment
-;  set current-wealth random-in-range minimum-sugar-endowment maximum-sugar-endowment
   set metabolism random-in-range 1 4
   set max-age random-in-range 60 100
   set age 0
   set current-wealth 0
-  set generation generation + 1
+  set historical-wealth 0
   set vision random-in-range 1 6
-  ;; turtles can look horizontally and vertically up to vision patches
-  ;; but cannot look diagonally at all
-  set vision-points []
-  foreach (range 1 (vision + 1)) [ n ->
-    set vision-points sentence vision-points (list (list 0 n) (list n 0) (list 0 (- n)) (list (- n) 0))
-  ]
+  set vision-points nobody
+  set step-size 1
+  send-info-to-clients
 end
-
-
 
 to remove-student
   ask students with [user-id = hubnet-message-source]
@@ -244,42 +165,15 @@ to remove-student
 end
 
 to execute-command [command]
-  ;; you should have one if statement for each widget that
-  ;; can affect the outcome of the model, buttons, sliders, switches
-  ;; choosers and the view, if the user clicks on the view you will receive
-  ;; a message with the tag "View" and the hubnet-message will be a
-  ;; two item list of the coordinates
+
+  if command = "up" [ execute-move 0 stop ]
+  if command = "down" [ execute-move 180 stop ]
+  if command = "right" [ execute-move 90 stop ]
+  if command = "left" [ execute-move 270 stop ]
   if command = "step-size"
   [
-    ;; note that the hubnet-message will vary depending on
-    ;; the type of widget that corresponds to the tag
-    ;; for example if the widget is a slider the message
-    ;; will be a number, of the widget is switch the message
-    ;; will be a boolean value
     set step-size hubnet-message
     stop
-  ]
-
-
-  if command = "up"
-  [
-    set sugar sugar - 1
-    execute-move 0 stop
-  ]
-  if command = "down"
-  [
-    set sugar sugar - 1
-    execute-move 180 stop
-  ]
-  if command = "right"
-  [
-    set sugar sugar - 1
-    execute-move 90 stop
-  ]
-  if command = "left"
-  [
-    set sugar sugar - 1
-    execute-move 270 stop
   ]
   if command = "eat"
   [
@@ -294,28 +188,16 @@ to send-info-to-clients ;; turtle procedure
   hubnet-send user-id "generation" generation
   hubnet-send user-id "sugar" sugar
   hubnet-send user-id "historical-wealth" historical-wealth
-
   hubnet-send user-id "rank" (position sugar reverse (sort [sugar] of students)) + 1
-;  show word user-id  word " " word sugar word "rank " ((position sugar reverse (sort [sugar] of students)) + 1)
   hubnet-send user-id "age" age
 end
 
 to execute-move [new-heading]
   set heading new-heading
   fd step-size
+  visualize-view-points
+  set sugar sugar - 1
   send-info-to-clients
-end
-
-
-
-to turtle-move ;; turtle procedure
-  ;; consider moving to unoccupied patches in our vision, as well as staying at the current patch
-  let move-candidates (patch-set patch-here (patches at-points vision-points) with [not any? turtles-here])
-  let possible-winners move-candidates with-max [psugar]
-  if any? possible-winners [
-    ;; if there are any such patches move to one of the patches that is closest
-    move-to min-one-of possible-winners [distance myself]
-  ]
 end
 
 to student-eat
@@ -323,20 +205,40 @@ to student-eat
   set psugar 0
 end
 
-to turtle-eat ;; turtle procedure
-  ;; metabolize some sugar, and eat all the sugar on the current patch
-  set sugar (sugar - metabolism + psugar)
-  set psugar 0
-end
-
 to patch-recolor ;; patch procedure
   ;; color patches based on the amount of sugar they have
-  set pcolor (yellow + 4.9 - psugar)
+  set true-color (yellow + 4.9 - psugar)
 end
 
 to patch-growback ;; patch procedure
   ;; gradually grow back all of the sugar for the patch
   set psugar min (list max-psugar (psugar + 1))
+end
+
+to calculate-view-points [dist]
+  ifelse dist > 0 [
+    set vision-points (patch-set
+      vision-points
+      patch-at 0 dist
+      patch-at dist 0
+      patch-at 0 (- dist)
+      patch-at (- dist) 0
+    )
+    calculate-view-points (dist - 1)
+  ]
+  [
+    set vision-points (patch-set
+      vision-points
+      patch-here
+    )
+  ]
+end
+
+to visualize-view-points
+    hubnet-clear-overrides hubnet-message-source
+    calculate-view-points vision
+    hubnet-send-override hubnet-message-source vision-points "pcolor" [true-color]
+    set vision-points nobody
 end
 
 to update-lorenz-and-gini
@@ -947,7 +849,7 @@ false
 Polygon -7500403 true true 270 75 225 30 30 225 75 270
 Polygon -7500403 true true 30 75 75 30 270 225 225 270
 @#$#@#$#@
-NetLogo 6.0.2-RC2
+NetLogo 6.0.2
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@

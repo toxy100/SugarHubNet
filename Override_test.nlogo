@@ -1,16 +1,8 @@
-breed [ students student ]
-breed [ marks mark]
+breed [students student]
 
-students-own
-[
-  user-id
-  next-task
-  my-timer
-  state
-  sugar
-  investment-portion
-  current-return
-]
+students-own [ user-id my-neighbors-4 ]
+
+patches-own [ true-color ]
 
 to startup
   hubnet-reset
@@ -20,46 +12,97 @@ to setup
   clear-patches
   clear-drawing
   clear-output
-  ask students
+  ask patches
   [
-    set investment-portion 100
-    set next-task [-> chill]
-    set my-timer 0
-    set state "chilling"
-    set sugar one-of [5 1000]
-    setxy ln sugar random-ycor
-    send-info-to-clients
+    ;; the gray covers the "true color" of the patch, which can only
+    ;; be seen on the clients if they click on a nearby patch
+    set pcolor gray
+    set true-color one-of [blue green]
+  ]
+  ask students [
+    set my-neighbors-4 nobody
   ]
   reset-ticks
 end
 
-;********************************************
-***************Runtime Procedure************
-********************************************
-
 to go
   listen-clients
-  every .1
+  every 0.1
   [
-    ask students [
-      update-investment
-    ]
     tick
   ]
 end
 
-********************************************
-*************HubNet Procedures**************
-********************************************
+;;
+;; Here's where the action is
+;;
+
+to execute-command [command]
+;  if command = "View"
+;  [
+;    ;; extract the coordinates from the message
+;    let p patch (item 0 hubnet-message) (item 1 hubnet-message)
+;    ;; get the patch clicked on and the surrounding patches in a single patch set
+;    let my-patch-set (patch-set p [neighbors] of p)
+;
+;    ;; clear any existing overrides on the client including any patches
+;    ;; revealed by the last click
+;    hubnet-clear-overrides hubnet-message-source
+;    ;; send an override to the client each patch in MY-PATCH-SET will evaluate
+;    ;; the reporter in the block [TRUE-COLOR].  So the color of the patch on the client
+;    ;; will appear as TRUE-COLOR rather than the color on the server.
+;    hubnet-send-override hubnet-message-source my-patch-set "pcolor" [true-color]
+;  ]
+  if command = "up"
+  [
+    set heading 0 fd 1
+    defog
+  ]
+    if command = "down"
+  [
+    set heading 180 fd 1
+    defog
+  ]
+    if command = "left"
+  [
+    set heading 270 fd 1
+    defog
+  ]
+    if command = "right"
+  [
+    set heading 90 fd 1
+    defog
+  ]
+end
+
+to color-patches [dist]
+  ifelse dist > 0 [
+    set my-neighbors-4 (patch-set my-neighbors-4 patch-at 0 dist patch-at dist 0 patch-at 0 (- dist) patch-at (- dist) 0)
+    color-patches (dist - 1)
+  ]
+  [set my-neighbors-4 (patch-set my-neighbors-4 patch-here)
+    ]
+end
+
+to defog
+    hubnet-clear-overrides hubnet-message-source
+    color-patches vision
+    hubnet-send-override hubnet-message-source my-neighbors-4 "pcolor" [true-color]
+    set my-neighbors-4 nobody
+end
+
+;;
+;; Standard HubNet Procedures
+;;
 
 to listen-clients
-  while [ hubnet-message-waiting? ]
+  while [hubnet-message-waiting?]
   [
     hubnet-fetch-message
-    ifelse hubnet-enter-message?
+    ifelse hubnet-enter-message? ;; when clients enter we get a special message
     [ create-new-student ]
     [
-      ifelse hubnet-exit-message?
+      ifelse hubnet-exit-message? ;; when clients exit we get a special message
       [ remove-student ]
       [ ask students with [user-id = hubnet-message-source]
         [ execute-command hubnet-message-tag ]
@@ -72,12 +115,7 @@ to create-new-student
   create-students 1
   [
     set user-id hubnet-message-source
-    set label user-id
-    set sugar one-of [5 1000]
-    set investment-portion 100
-    set state "chilling"
-    set next-task [-> chill]
-    send-info-to-clients
+    set my-neighbors-4 nobody
   ]
 end
 
@@ -86,145 +124,19 @@ to remove-student
   [ die ]
 end
 
-to execute-command [command]
-  if command = "investment-portion"
-  [
-    set investment-portion hubnet-message
-    stop
-  ]
-  if command = "work"
-  [ work ]
-  if command = "invest"
-  [
-    ifelse sugar < 1000 [
-        hubnet-send user-id "message" "Min Investment 1000 Sugar"
-        wait 1
-    ][
-      ifelse state = "investing" [
-        hubnet-send user-id "message" "Already investing"
-      ][
-        set state "investing"
-        set my-timer 50
-        set next-task [-> invest]
-        run next-task
-        hubnet-send user-id "message" "Investing..."
-        stop
-      ]
-    ]
-  ]
-end
 
-to send-info-to-clients ;; turtle procedure
-  hubnet-send user-id "message" state
-  hubnet-send user-id "sugar" sugar
-  hubnet-send user-id "current-income" 0 ;;;;;;;current-income is not a turtle variable. it's calculated on the go
-  hubnet-send user-id "investment-portion" investment-portion
-end
-
-********************************************
-********************************************
-********************************************
-
-to chill
-  hubnet-send user-id "message" "Chilling"
-end
-
-to work
-  hubnet-send user-id "message" "Working"
-  set state "working"
-  let current-income 0
-  ifelse sugar < 1000 [
-    set current-income poor-wage + welfare-amount
-    set sugar sugar + current-income
-  ][
-    set current-income rich-wage
-    set sugar sugar + current-income
-  ]
-  wait 0.1
-  set state "chilling"
-  set next-task [-> chill]
-  run next-task
-  hubnet-send user-id "sugar" sugar
-  hubnet-send user-id "current-income" current-income
-end
-
-to invest
-  let investment sugar * investment-portion / 100
-  let saving sugar - investment
-  ifelse investment-failure? [
-    ifelse chance 50 [
-      let lost-rate 50 + random 51
-      set current-return (-1 * investment * lost-rate / 100)
-      ifelse saving + current-return < 0 [
-        set sugar 0
-      ][
-        set sugar saving + current-return
-      ]
-    ][
-      set current-return investment * investment-return / 100
-      set sugar saving + current-return
-    ]
-  ][
-    set current-return investment * investment-return / 100
-    set sugar saving + current-return
-  ]
-end
-
-to update-investment
-  if state = "investing" [
-    ifelse my-timer > 0 [
-      set my-timer my-timer - 1
-    ][
-      set next-task [-> chill]
-      set state "chilling"
-      hubnet-send user-id "current-income" round current-return
-      hubnet-send user-id "sugar" round sugar
-      run next-task
-    ]
-  ]
-end
-********************************************
-******************Utility*******************
-********************************************
-
-to-report chance [percentage]
-  ifelse random 100 < percentage [
-    report true
-  ][
-    report false
-  ]
-end
-
-********************************************
-****************Visualization***************
-********************************************
-
-to show-ln-grid
-    create-marks 100 [
-      set size 0
-      set color gray
-      set xcor one-of map [i -> ln i][ 1 10 100 1000 10000 100000 1000000 10000000 100000000]
-      set label round (e ^ xcor)
-      set ycor min-pycor
-      set heading 0
-      pd
-      fd max-pycor
-    ]
-end
-
-to hide-ln-grid
-  ask marks [die]
-  clear-drawing
-end
+; Public Domain:
+; To the extent possible under law, Uri Wilensky has waived all
+; copyright and related or neighboring rights to this model.
 @#$#@#$#@
 GRAPHICS-WINDOW
 231
 10
-732
-512
+659
+439
 -1
 -1
-23.5
+20.0
 1
 10
 1
@@ -234,20 +146,20 @@ GRAPHICS-WINDOW
 0
 0
 1
+-10
+10
+-10
+10
+1
+1
 0
-20
-0
-20
-1
-1
-1
 ticks
 30.0
 
 BUTTON
-34
+42
 51
-105
+113
 84
 NIL
 setup
@@ -262,9 +174,9 @@ NIL
 1
 
 BUTTON
-107
+115
 51
-178
+186
 84
 NIL
 go
@@ -278,144 +190,57 @@ NIL
 NIL
 0
 
-SLIDER
-29
-120
-201
-153
-poor-wage
-poor-wage
+TEXTBOX
+15
+92
+227
+137
+Users click on their client view\nto reveal the color of patches\nat that location.
+12
+0.0
 1
-5
-1.0
-1
-1
-Sugar
-HORIZONTAL
 
 SLIDER
 29
-154
+172
 201
-187
-rich-wage
-rich-wage
-25
-100
-25.0
-5
+205
+vision
+vision
 1
-Sugar
-HORIZONTAL
-
-SLIDER
-26
-279
-199
-312
-investment-return
-investment-return
-100
-1000
-200.0
-100
-1
-%
-HORIZONTAL
-
-SLIDER
-26
-368
-199
-401
-welfare-amount
-welfare-amount
-0
-5
-5.0
+6
+6.0
 1
 1
 NIL
 HORIZONTAL
-
-SLIDER
-27
-246
-199
-279
-min-investment
-min-investment
-1000
-10000
-1000.0
-1000
-1
-Sugar
-HORIZONTAL
-
-SWITCH
-26
-321
-199
-354
-investment-failure?
-investment-failure?
-0
-1
--1000
-
-BUTTON
-5
-461
-119
-494
-NIL
-show-ln-grid
-NIL
-1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
-1
-
-BUTTON
-130
-462
-239
-495
-NIL
-hide-ln-grid
-NIL
-1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
-1
 
 @#$#@#$#@
 ## WHAT IS IT?
 
-This template contains code that can serve as a starting point for creating new HubNet activities. It shares many of the basic procedures used by other HubNet activities, which are required to connect to and communicate with clients in Disease-like activities.
+This example demonstrates how to use overrides in HubNet.
 
 ## HOW IT WORKS
 
-In activities like Disease, each client controls a single turtle on the server.  These turtles are a breed called STUDENTS.  When a client logs in we create a new student turtle and set it up with the default attributes.  Students own a variable for every widget on the client that holds a state, that is, sliders, switches, choosers, and input boxes.  Whenever a user changes one of these elements on the client, a message is sent to the server.  The server catches the message and stores the result.  In this example a slider is used to demonstrate this behavior.  You can also send messages to the client-side widgets using `hubnet-send`.  Monitors on clients must be updated manually by the model, that is you must send a message to a monitor every time you want the value displayed to change. For example, if you have a monitor that displays the current location of the client's avatar, you must send a message to the client like this:
+The most important part of the code is found in the EXECUTE-COMMAND procedure.  When the server receives a message that the client clicked on the view it sends a message back to the client to change the color of the nearby patches.
 
-     hubnet-send user-id "location" (word xcor " " ycor)
+Note that this feature will only work if you have the "Mirror 2D view on clients" box checked in the HubNet Control Center.
 
-whenever the client moves.  Buttons on the client side send but do not receive messages.  When a user presses a button, a message is sent to the server.  The server catches the message and executes the appropriate commands.  In this case, the commands should always be turtle commands since the clients control only a single turtle.
+## THINGS TO TRY
 
-## HOW TO USE IT
+Comment out the line:
 
-To start the activity press the GO button.  Ask students to login using the HubNet client or you can test the activity locally by pressing the LOCAL button in the HubNet Control Center. To see the view in the client interface check the Mirror 2D view on clients checkbox.  The clients can use the UP, DOWN, LEFT, and RIGHT buttons to move their avatar and change the amount they move each step by changing the STEP-SIZE slider.
 
-<!-- 2007 -->
+     hubnet-clear-overrides hubnet-message-source
+
+
+what changes?
+
+## NETLOGO FEATURES
+
+This model demonstrates basic usage of HUBNET-SEND-OVERRIDE and HUBNET-CLEAR-OVERRIDES.
+
+<!-- 2009 -->
 @#$#@#$#@
 default
 true
@@ -706,9 +531,9 @@ need-to-manually-make-preview-for-this-model
 @#$#@#$#@
 @#$#@#$#@
 VIEW
-252
+12
 10
-753
+442
 440
 0
 0
@@ -722,16 +547,16 @@ VIEW
 1
 1
 1
-0
-20
-0
-20
+-10
+10
+-10
+10
 
 BUTTON
-85
-121
-147
-154
+524
+56
+587
+89
 up
 NIL
 NIL
@@ -739,13 +564,13 @@ NIL
 T
 OBSERVER
 NIL
-I
+NIL
 
 BUTTON
-85
-187
-150
-220
+524
+99
+589
+132
 down
 NIL
 NIL
@@ -753,27 +578,13 @@ NIL
 T
 OBSERVER
 NIL
-K
+NIL
 
 BUTTON
-147
-154
-210
-187
-right
-NIL
-NIL
-1
-T
-OBSERVER
-NIL
-L
-
-BUTTON
-23
-154
-85
-187
+459
+100
+522
+133
 left
 NIL
 NIL
@@ -781,49 +592,14 @@ NIL
 T
 OBSERVER
 NIL
-J
-
-SLIDER
-39
-78
-189
-111
-step-size
-step-size
-1.0
-5.0
-2
-1.0
-1
 NIL
-HORIZONTAL
-
-MONITOR
-70
-21
-157
-70
-location
-NIL
-0
-1
-
-MONITOR
-69
-255
-215
-304
-message
-NIL
-0
-1
 
 BUTTON
-41
-332
-104
-365
-work
+602
+103
+665
+136
+right
 NIL
 NIL
 1
@@ -831,55 +607,6 @@ T
 OBSERVER
 NIL
 NIL
-
-BUTTON
-131
-334
-200
-367
-invest
-NIL
-NIL
-1
-T
-OBSERVER
-NIL
-NIL
-
-MONITOR
-65
-397
-122
-446
-sugar
-NIL
-1
-1
-
-MONITOR
-137
-400
-248
-449
-current-income
-NIL
-0
-1
-
-SLIDER
-42
-474
-228
-507
-investment-portion
-investment-portion
-0.0
-100.0
-0
-10.0
-1
-%
-HORIZONTAL
 
 @#$#@#$#@
 default
