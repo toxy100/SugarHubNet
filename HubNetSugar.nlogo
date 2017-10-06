@@ -42,7 +42,6 @@ to startup
   hubnet-reset
 end
 
-
 to setup
   clear-patches
   clear-drawing
@@ -82,7 +81,7 @@ end
 
 to go
   listen-clients
-  every 0.1 [
+;  every 0.1 [
     if not any? students [
       stop
     ]
@@ -104,26 +103,22 @@ to go
     ]
     update-lorenz-and-gini
     tick
-  ]
+;  ]
 end
 
 
 to listen-clients
-  ;; as long as there are more messages from the clients
-  ;; keep processing them.
   while [ hubnet-message-waiting? ]
   [
-    ;; get the first message in the queue
     hubnet-fetch-message
-    ifelse hubnet-enter-message? ;; when clients enter we get a special message
+    ifelse hubnet-enter-message?
     [ create-new-student ]
     [
-      ifelse hubnet-exit-message? ;; when clients exit we get a special message
+      ifelse hubnet-exit-message?
       [ remove-student ]
       [ ask students with [user-id = hubnet-message-source]
-        [ execute-command hubnet-message-tag ] ;; otherwise the message means that the user has
-      ]                                        ;; done something in the interface hubnet-message-tag
-                                               ;; is the name of the widget that was changed
+        [ execute-command hubnet-message-tag ]
+      ]
     ]
   ]
 end
@@ -166,31 +161,23 @@ to remove-student
 end
 
 to execute-command [command]
-
-  if command = "up" [ execute-move 0 stop ]
-  if command = "down" [ execute-move 180 stop ]
-  if command = "right" [ execute-move 90 stop ]
-  if command = "left" [ execute-move 270 stop ]
-  if command = "step-size"
-  [
-    set step-size hubnet-message
-    stop
-  ]
-  if command = "eat"
-  [
-    set sugar (sugar - metabolism + psugar)
-    set psugar 0
-    stop
-  ]
+  if command = "up" [ execute-move 0 ]
+  if command = "down" [ execute-move 180 ]
+  if command = "right" [ execute-move 90 ]
+  if command = "left" [ execute-move 270 ]
+  if command = "eat" [ eat ]
+  if command = "step-size" [ set step-size hubnet-message stop ]
 end
 
-to send-info-to-clients ;; turtle procedure
+to send-info-to-clients
   hubnet-send user-id "location" (word "(" pxcor "," pycor ")")
   hubnet-send user-id "generation" generation
   hubnet-send user-id "sugar" sugar
   hubnet-send user-id "historical-wealth" historical-wealth
   hubnet-send user-id "rank" (position sugar reverse (sort [sugar] of students)) + 1
   hubnet-send user-id "age" age
+  hubnet-send-override hubnet-message-source patch-here "pcolor" [true-color]
+
 end
 
 to execute-move [new-heading]
@@ -199,25 +186,25 @@ to execute-move [new-heading]
   visualize-view-points
   set sugar sugar - 1
   send-info-to-clients
+  stop
 end
 
-to student-eat
-  set current-wealth current-wealth - metabolism + psugar
+to eat
+  set sugar (sugar - metabolism + psugar)
   set psugar 0
+  stop
 end
 
-to patch-recolor ;; patch procedure
-  ;; color patches based on the amount of sugar they have
+to patch-recolor
   set true-color (yellow + 4.9 - psugar)
 end
 
-to patch-growback ;; patch procedure
-  ;; gradually grow back all of the sugar for the patch
+to patch-growback
   set psugar min (list max-psugar (psugar + 1))
 end
 
 to calculate-view-points [dist]
-  ifelse dist > 0 [
+  if dist > 0 [
     set vision-points (patch-set
       vision-points
       patch-at 0 dist
@@ -227,13 +214,17 @@ to calculate-view-points [dist]
     )
     calculate-view-points (dist - 1)
   ]
-  [
-    set vision-points (patch-set
-      vision-points
-      patch-here
-    )
-  ]
+;  [
+;    set vision-points (patch-set
+;      vision-points
+;      patch-here
+;    )
+;  ]
 end
+
+;to calculate-view-points [dist]
+;  set vision-points patches in-radius dist with [pxcor = [xcor] of self and pycor = [ycor] of self]
+;end
 
 to visualize-view-points
     hubnet-clear-overrides hubnet-message-source
@@ -245,9 +236,9 @@ end
 to update-lorenz-and-gini
   let num-people count turtles
   let sorted-wealths sort [sugar] of turtles
-;  show word "sorted-wealths" sorted-wealths
+  ;  show word "sorted-wealths" sorted-wealths
   let total-wealth sum sorted-wealths
-;  show word "total-wealth" total-wealth
+  ;  show word "total-wealth" total-wealth
   let wealth-sum-so-far 0
   let index 0
   set gini-index-reserve 0
@@ -257,9 +248,9 @@ to update-lorenz-and-gini
     set lorenz-points lput ((wealth-sum-so-far / total-wealth) * 100) lorenz-points
     set index (index + 1)
     set gini-index-reserve
-      gini-index-reserve +
-      (index / num-people) -
-      (wealth-sum-so-far / total-wealth)
+    gini-index-reserve +
+    (index / num-people) -
+    (wealth-sum-so-far / total-wealth)
   ]
 end
 
@@ -480,10 +471,10 @@ NIL
 HORIZONTAL
 
 BUTTON
-10
-250
-112
-283
+105
+325
+195
+365
 show world
 ask patches [set pcolor true-color]
 NIL
@@ -497,12 +488,46 @@ NIL
 1
 
 BUTTON
-120
-250
-212
-283
+195
+325
+285
+365
 hide world
 ask patches [set pcolor gray]
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+BUTTON
+105
+380
+195
+420
+show label
+ask turtles [set label user-id]
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+BUTTON
+195
+380
+285
+420
+hide label
+ask turtles [set label \"\"]
 NIL
 1
 T
