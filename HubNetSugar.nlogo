@@ -179,7 +179,7 @@ to refresh-turtle
   set insured? false
   set at-school? false
   set message-buffer ""
-  hubnet-send-follow hubnet-message-source self vision + 2
+  hubnet-send-follow hubnet-message-source self 7
   send-info-to-clients
 end
 
@@ -197,7 +197,15 @@ to execute-command [command]
   if command = "eat" [ eat ]
   if command = "step-size" [ set step-size hubnet-message stop ]
 ;  if command = "buy-insurance" [set insured? true]
-  if command = "go-to-school" [set at-school? true set my-timer 20 stop ];set next-task [-> school] stop]
+  if command = "go-to-school" [
+    ifelse vision < 6 [
+      set at-school? true
+      set my-timer 50
+    ][
+      hubnet-send user-id "message" "you already have maximum vision"
+    ]
+   stop
+  ]
 end
 
 to send-info-to-clients
@@ -930,10 +938,10 @@ NetLogo 6.0.2
 @#$#@#$#@
 @#$#@#$#@
 MONITOR
-20
-15
-82
-64
+25
+440
+87
+489
 location
 NIL
 1
@@ -955,10 +963,10 @@ NIL
 HORIZONTAL
 
 MONITOR
-100
-15
-265
-64
+10
+10
+295
+59
 message
 NIL
 0
@@ -1021,10 +1029,10 @@ NIL
 D
 
 VIEW
-295
-25
-695
-425
+310
+10
+905
+595
 0
 0
 0
