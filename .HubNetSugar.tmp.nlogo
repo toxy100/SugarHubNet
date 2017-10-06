@@ -123,9 +123,7 @@ to school
     set sugar sugar - 1
   ][
     ifelse at-school? [
-      set vision vision + 1
-      set at-school? false
-      visualize-view-points
+      set vision vision + 1 set at-school? false
     ][
       execute-command message-buffer
     ]
