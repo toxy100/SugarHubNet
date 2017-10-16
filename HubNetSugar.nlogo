@@ -16,10 +16,6 @@ students-own
   user-id   ;; students choose a user name when they log in whenever you receive a
             ;; message from the student associated with this turtle hubnet-message-source
             ;; will contain the user-id
-  step-size ;; you should have a turtle variable for every widget in the client interface that
-            ;; stores a value (sliders, choosers, and switches). You will receive a message
-            ;; from the client whenever the value changes. However, you will not be able to
-            ;; retrieve the value at will unless you store it in a variable on the server.
   sugar           ;; the amount of sugar this turtle has
   metabolism      ;; the amount of sugar that each turtles loses each tick
   vision          ;; the distance that this turtle can see in the horizontal and vertical directions
@@ -31,11 +27,10 @@ students-own
   historical-wealth     ;;;;;;;the sum of wealth over generations
   generation  ;;;;;;;;;when turtles die, they are not removed from the model. Instead, they "reborn" with new randomly assigned environment and traits
               ;;;;;;;;;generation starts with 1 when students log in, and increase by 1 after each time they are reborn.
-  insured?
-  at-school?
-  my-timer
-;  next-task
-  message-buffer
+  insured? ;; true if the student bought insurance for the current period
+  at-school? ;; true if the student is at school
+  my-timer  ;; a countdown timer to disable movements when in a certain state, such as at school
+  message-buffer ;; stores the last client operation from hubnet-fetch-message, so it can be executed after a period of delay, instead of immediatly.
 ]
 
 
@@ -175,7 +170,7 @@ to refresh-turtle
   set historical-wealth 0
   set vision random-in-range 1 6
   set vision-points nobody
-  set step-size 1
+;  set step-size 1
   set insured? false
   set at-school? false
   set message-buffer ""
@@ -195,7 +190,7 @@ to execute-command [command]
   if command = "right" [ execute-move 90 ]
   if command = "left" [ execute-move 270 ]
   if command = "eat" [ eat ]
-  if command = "step-size" [ set step-size hubnet-message stop ]
+;  if command = "step-size" [ set step-size hubnet-message stop ]
 ;  if command = "buy-insurance" [set insured? true]
   if command = "go-to-school" [
     ifelse vision < 6 [
@@ -222,7 +217,7 @@ end
 
 to execute-move [new-heading]
   set heading new-heading
-  fd step-size
+  fd 1;step-size
   visualize-view-points
   set sugar sugar - 1
   send-info-to-clients
