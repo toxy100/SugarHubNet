@@ -29,6 +29,7 @@ students-own
               ;;;;;;;;;generation starts with 1 when students log in, and increase by 1 after each time they are reborn.
   insured? ;; true if the student bought insurance for the current period
   at-school? ;; true if the student is at school
+  investing?
   my-timer  ;; a countdown timer to disable movements when in a certain state, such as at school
   message-buffer ;; stores the last client operation from hubnet-fetch-message, so it can be executed after a period of delay, instead of immediatly.
 ]
@@ -91,8 +92,21 @@ to go
       patch-recolor
     ]
     ask students [
-      school
-;      if (ticks mod 12) = 0 [set age (age + 1)]
+      ifelse at-school? [
+
+      ][
+        ifelse investing? [
+
+        ][
+          execute-command message-buffer
+        ];investing? false
+
+      ];at-school? false
+
+;      school
+;      invest
+
+      ;      if (ticks mod 12) = 0 [set age (age + 1)]
 ;      if sugar <= 0 [
 ;        hubnet-send user-id "message" "you died due to starvation"
 ;        refresh-turtle
@@ -112,15 +126,28 @@ to go
   ]
 end
 
-to school
+;to school
+;  ifelse my-timer > 0 [
+;    set my-timer my-timer - 1
+;    set sugar sugar - 1
+;  ][
+;    ifelse at-school? [
+;      set vision vision + 1
+;      set at-school? false
+;      visualize-view-points
+;    ][
+;      execute-command message-buffer
+;    ]
+;  ]
+;end
+
+to invest
   ifelse my-timer > 0 [
     set my-timer my-timer - 1
-    set sugar sugar - 1
   ][
-    ifelse at-school? [
-      set vision vision + 1
-      set at-school? false
-      visualize-view-points
+    ifelse investing? [
+      set sugar sugar + 1000
+      set investing? false
     ][
       execute-command message-buffer
     ]
@@ -172,8 +199,10 @@ to refresh-turtle
   set vision-points nobody
 ;  set step-size 1
   set insured? false
+  set investing? false
   set at-school? false
   set message-buffer ""
+  hubnet-send user-id "message" ""
   hubnet-send-follow hubnet-message-source self 7
   send-info-to-clients
 end
@@ -189,9 +218,9 @@ to execute-command [command]
   if command = "down" [ execute-move 180 ]
   if command = "right" [ execute-move 90 ]
   if command = "left" [ execute-move 270 ]
-  if command = "eat" [ eat ]
-;  if command = "step-size" [ set step-size hubnet-message stop ]
-;  if command = "buy-insurance" [set insured? true]
+  if command = "harvest" [ harvest ]
+  ;  if command = "step-size" [ set step-size hubnet-message stop ]
+  ;  if command = "buy-insurance" [set insured? true]
   if command = "go-to-school" [
     ifelse vision < 6 [
       set at-school? true
@@ -199,11 +228,29 @@ to execute-command [command]
     ][
       hubnet-send user-id "message" "you already have maximum vision"
     ]
-   stop
+    stop
+  ]
+  if command = "invest" [
+    ifelse sugar < 1000 [
+      hubnet-send user-id "message" "Min Investment 1000 Sugar"
+      wait 1
+      hubnet-send user-id "message" ""
+    ][
+      ifelse investing? [
+        hubnet-send user-id "message" "Already investing"
+        wait 1
+        hubnet-send user-id "message" ""
+      ][
+        set investing? true
+        set my-timer 40
+      ]
+    ]
+    stop
   ]
 end
 
 to send-info-to-clients
+  hubnet-send-override hubnet-message-source patch-here "pcolor" [true-color]
   hubnet-send user-id "location" (word "(" pxcor "," pycor ")")
   hubnet-send user-id "generation" generation
   hubnet-send user-id "sugar" sugar
@@ -211,7 +258,7 @@ to send-info-to-clients
   hubnet-send user-id "rank" (position sugar reverse (sort [sugar] of students)) + 1
   hubnet-send user-id "age" age
   hubnet-send user-id "my-timer" my-timer
-  hubnet-send-override hubnet-message-source patch-here "pcolor" [true-color]
+
 
 end
 
@@ -224,7 +271,7 @@ to execute-move [new-heading]
   stop
 end
 
-to eat
+to harvest
   set sugar (sugar - metabolism + psugar)
   set psugar 0
   stop
@@ -927,7 +974,7 @@ false
 Polygon -7500403 true true 270 75 225 30 30 225 75 270
 Polygon -7500403 true true 30 75 75 30 270 225 225 270
 @#$#@#$#@
-NetLogo 6.0.2
+NetLogo 6.0.3-M1
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@
@@ -1087,17 +1134,17 @@ NIL
 
 BUTTON
 225
-148
-288
-181
-eat
+150
+305
+183
+harvest
 NIL
 NIL
 1
 T
 OBSERVER
 NIL
-J
+H
 
 MONITOR
 215
@@ -1146,6 +1193,20 @@ my-timer
 NIL
 0
 1
+
+BUTTON
+225
+185
+305
+218
+invest
+NIL
+NIL
+1
+T
+OBSERVER
+NIL
+I
 
 @#$#@#$#@
 default
