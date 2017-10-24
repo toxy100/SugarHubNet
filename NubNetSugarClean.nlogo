@@ -175,16 +175,6 @@ end
 
 ;;;;;;;;;;;;;;;;;HubNet Commands;;;;;;;;;;;
 
-;to execute-move [new-heading]
-;  set heading new-heading
-;  fd 1;step-size
-;  visualize-view-points
-;  set sugar sugar - 1
-;  send-info-to-clients
-;  set message-buffer ""
-;  stop
-;end
-
 to calculate-view-points [dist]
   if dist > 0 [
     set vision-points (patch-set
@@ -204,14 +194,6 @@ to visualize-view-points
     hubnet-send-override hubnet-message-source vision-points "pcolor" [true-color]
     set vision-points nobody
 end
-
-;to harvest
-;  set sugar (sugar - metabolism + psugar)
-;  set accumulative-sugar accumulative-sugar + sugar
-;  set psugar 0
-;  set message-buffer ""
-;  stop
-;end
 
 to chill
 end
@@ -260,17 +242,21 @@ to harvest
 end
 
 to go-to-school-pressed
-  ifelse state = "schooling" [
-    hubnet-send user-id "message" "you are already at school"
-  ][
-    ifelse state = "chilling" [
-      set state "schooling"
-      set my-timer 10
-      set next-task [-> school]
-      hubnet-send user-id "message" "at school..."
+  ifelse sugar > tuition [
+    ifelse state = "schooling" [
+      hubnet-send user-id "message" "you are already at school"
     ][
-    hubnet-send user-id "message" word "can't go to school because you are" state
+      ifelse state = "chilling" [
+        set state "schooling"
+        set my-timer 10
+        set next-task [-> school]
+        hubnet-send user-id "message" "at school..."
+      ][
+        hubnet-send user-id "message" word "can't go to school because you are" state
+      ]
     ]
+  ][
+    hubnet-send user-id "message" word "you need " word tuition " sugar for tuition"
   ]
 end
 
@@ -278,23 +264,34 @@ to school
   ifelse my-timer > 0 [
     set my-timer my-timer - 1
   ][
-    set sugar sugar + 100        ;;;;;;;;;change the behavior to schooling
-    hubnet-send user-id "message" "You graduated and your vision expanded by 1"
-    set next-task [-> chill]
-    set state "chilling"
+    ifelse vision < 6 [
+      set sugar sugar - 100
+      set vision vision + 1
+      visualize-view-points
+      hubnet-send user-id "message" "You graduated with expanded vision"
+      set next-task [-> chill]
+      set state "chilling"
+    ][
+      hubnet-send user-id "message" "You already have the best vision"
+    ]
   ]
 end
 
 to invest-pressed
-  ifelse state = "investing" [
-    hubnet-send user-id "message" "you are already investing"
+  ifelse sugar > poverty-line [
+    ifelse state = "investing" [
+      hubnet-send user-id "message" "you are already investing"
+    ][
+      if state = "chilling" [
+        set state "investing"
+        set my-timer 10
+        set next-task [-> invest]
+        hubnet-send user-id "message" "investing..."
+      ]
+    ]
   ][
-    if state = "chilling" [
-      set state "investing"
-      set my-timer 10
-      set next-task [-> invest]
-      hubnet-send user-id "message" "investing..."
-  ]]
+    hubnet-send user-id "message" word "minimum investment " word poverty-line " sugar"
+  ]
 end
 
 to invest
@@ -341,45 +338,17 @@ end
 to-report random-in-range [low high]
   report low + random (high - low + 1)
 end
-
-
-;  if command = "go-to-school" [
-;    ifelse vision < 6 [
-;      set at-school? true
-;      set my-timer 50
-;    ][
-;      hubnet-send user-id "message" "you already have maximum vision"
-;    ]
-;    stop
-;  ]
-;  if command = "invest" [
-;    ifelse sugar < 1000 [
-;      hubnet-send user-id "message" "Min Investment 1000 Sugar"
-;      wait 1
-;      hubnet-send user-id "message" ""
-;    ][
-;      ifelse investing? [
-;        hubnet-send user-id "message" "Already investing"
-;        wait 1
-;        hubnet-send user-id "message" ""
-;      ][
-;        set investing? true
-;        set my-timer 40
-;      ]
-;    ]
-;    stop
-;  ]
 @#$#@#$#@
 GRAPHICS-WINDOW
 210
 10
-718
-519
+768
+569
 -1
 -1
-10.0
+11.0
 1
-10
+12
 1
 1
 1
@@ -421,7 +390,7 @@ minimum-sugar-endowment
 minimum-sugar-endowment
 0
 100
-5.0
+9.0
 1
 1
 NIL
@@ -463,20 +432,20 @@ NIL
 
 SWITCH
 5
-141
+140
 206
-174
-generations
-generations
-1
-1
--1000
-
-SWITCH
-5
 173
+generations
+generations
+1
+1
+-1000
+
+SWITCH
+5
+172
 206
-206
+205
 inheritance
 inheritance
 1
@@ -484,10 +453,10 @@ inheritance
 -1000
 
 SWITCH
-5
-371
-206
-404
+4
+343
+205
+376
 education
 education
 1
@@ -495,10 +464,10 @@ education
 -1000
 
 SWITCH
-5
-291
-206
-324
+4
+263
+205
+296
 investment
 investment
 1
@@ -547,10 +516,10 @@ tax-rate-rich
 HORIZONTAL
 
 SLIDER
-5
-323
-206
-356
+4
+295
+205
+328
 investment-rate-of-return
 investment-rate-of-return
 0
@@ -562,10 +531,10 @@ NIL
 HORIZONTAL
 
 BUTTON
-334
-537
-439
-570
+379
+572
+484
+605
 show-world
 ask patches [set pcolor true-color]
 NIL
@@ -579,10 +548,10 @@ NIL
 1
 
 BUTTON
-460
-537
-560
-570
+490
+572
+590
+605
 hide-world
 ask patches [set pcolor gray]
 NIL
@@ -597,9 +566,9 @@ NIL
 
 SLIDER
 4
-227
+217
 205
-260
+250
 poverty-line
 poverty-line
 0
@@ -609,6 +578,32 @@ poverty-line
 1
 sugar
 HORIZONTAL
+
+SLIDER
+4
+375
+205
+408
+tuition
+tuition
+50
+1000
+50.0
+50
+1
+sugar
+HORIZONTAL
+
+SWITCH
+4
+536
+205
+569
+welfare
+welfare
+1
+1
+-1000
 
 @#$#@#$#@
 ## WHAT IS IT?
