@@ -574,10 +574,10 @@ NIL
 HORIZONTAL
 
 BUTTON
-379
-572
-484
-605
+210
+574
+315
+607
 show-world
 ask patches [set pcolor true-color]
 NIL
@@ -591,10 +591,10 @@ NIL
 1
 
 BUTTON
-490
-572
-590
-605
+321
+574
+421
+607
 hide-world
 ask patches [set pcolor gray]
 NIL
@@ -647,6 +647,40 @@ welfare
 1
 1
 -1000
+
+BUTTON
+560
+571
+679
+604
+hide-students
+ask turtles [ht]
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+BUTTON
+689
+578
+814
+611
+show-students
+ask turtles [st]
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
 
 @#$#@#$#@
 ## WHAT IS IT?
