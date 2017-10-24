@@ -25,8 +25,8 @@ students-own
   generation  ;;;;;;;;;when turtles die, they are not removed from the model. Instead, they "reborn" with new randomly assigned environment and traits
               ;;;;;;;;;generation starts with 1 when students log in, and increase by 1 after each time they are reborn.
   accumulative-sugar
-  at-school? ;; true if the student is at school
-  investing?
+  next-task  ;; the next task a turtle will run. Can be either harvest, invest, go-to-school, or chill.
+  state  ;; the current state a turtle is in. Used to switch between tasks. Can be either harvesting, investing, schooling, or chilling.
   message-buffer
   my-timer  ;; a countdown timer to disable movements when in a certain state, such as at school
 ]
@@ -80,7 +80,7 @@ to go
       patch-recolor
     ]
     ask students [
-      execute-command message-buffer
+      run next-task          ;execute-command message-buffer
       send-info-to-clients
     ]
     update-lorenz-and-gini
@@ -100,7 +100,8 @@ to listen-clients
       ifelse hubnet-exit-message?
       [ remove-student ]
       [ ask students with [user-id = hubnet-message-source]
-        [ ask students with [user-id = hubnet-message-source] [set message-buffer hubnet-message-tag ]];execute-command hubnet-message-tag ]
+        ;[ ask students with [user-id = hubnet-message-source] [set message-buffer hubnet-message-tag ]];
+        [ execute-command hubnet-message-tag ]
       ]
     ]
   ]
@@ -122,14 +123,15 @@ end
 to refresh-turtle
   move-to one-of patches with [not any? other turtles-here]
   set sugar random-in-range minimum-sugar-endowment maximum-sugar-endowment
+  set accumulative-sugar sugar
   set metabolism random-in-range 1 4
   set max-age random-in-range 60 100
   set age 0
   set vision random-in-range 1 6
   set vision-points nobody
-  set investing? false
-  set at-school? false
-  hubnet-send user-id "message" ""
+  set next-task [-> chill]
+  set state "chilling"
+  hubnet-send user-id "message" "Welcome to SugarScape!"
   hubnet-send-follow hubnet-message-source self 7
   send-info-to-clients
 end
@@ -144,9 +146,9 @@ to execute-command [command]
   if command = "down" [ execute-move 180 ]
   if command = "right" [ execute-move 90 ]
   if command = "left" [ execute-move 270 ]
-  if command = "harvest" [ harvest ]
-  if command = "go-to-school" []
-  if command = "invest" []
+  if command = "harvest" [ harvest-pressed ]
+  if command = "go-to-school" [ go-to-school-pressed ]
+  if command = "invest" [ invest-pressed ]
 end
 
 to send-info-to-clients
@@ -160,8 +162,8 @@ to send-info-to-clients
   hubnet-send user-id "count-down" my-timer
 
   hubnet-send user-id "current-sugar" sugar
-  hubnet-send user-id "wealth-ranking" (position sugar reverse sort [sugar] of students) + 1
   hubnet-send user-id "accumulative-sugar" accumulative-sugar
+  hubnet-send user-id "wealth-ranking" (position sugar reverse sort [sugar] of students) + 1
   hubnet-send user-id "rate-of-return" investment-rate-of-return
   hubnet-send user-id "tax-rate" tax-rate
 
@@ -173,15 +175,15 @@ end
 
 ;;;;;;;;;;;;;;;;;HubNet Commands;;;;;;;;;;;
 
-to execute-move [new-heading]
-  set heading new-heading
-  fd 1;step-size
-  visualize-view-points
-  set sugar sugar - 1
-  send-info-to-clients
-  set message-buffer ""
-  stop
-end
+;to execute-move [new-heading]
+;  set heading new-heading
+;  fd 1;step-size
+;  visualize-view-points
+;  set sugar sugar - 1
+;  send-info-to-clients
+;  set message-buffer ""
+;  stop
+;end
 
 to calculate-view-points [dist]
   if dist > 0 [
@@ -203,12 +205,107 @@ to visualize-view-points
     set vision-points nobody
 end
 
+;to harvest
+;  set sugar (sugar - metabolism + psugar)
+;  set accumulative-sugar accumulative-sugar + sugar
+;  set psugar 0
+;  set message-buffer ""
+;  stop
+;end
+
+to chill
+end
+
+to execute-move [new-heading]
+  ifelse state = "chilling" [
+    set heading new-heading
+    fd 1
+    hubnet-send user-id "message" "moving..."
+    visualize-view-points
+    set sugar sugar - 1
+    send-info-to-clients
+    hubnet-send user-id "message" ""
+    stop
+  ][
+    hubnet-send user-id "message" word "can't move because you are " state
+  ]
+end
+
+to harvest-pressed
+  ifelse state = "harvesting" [
+    hubnet-send user-id "message" "already harvesting"
+  ][
+    ifelse state = "investing" [
+      hubnet-send user-id "message" "can't havest because you are investing"
+    ][
+      ifelse state = "schooling"[
+        hubnet-send user-id "message" "can't havest because you are at school"
+      ][
+        set state "harvesting"
+        set next-task [-> harvest]
+      ]
+    ]
+  ]
+end
+
 to harvest
+  hubnet-send user-id "message" "harvesting..."
   set sugar (sugar - metabolism + psugar)
-  set accumulative-sugar accumulative-sugar + sugar
+  set accumulative-sugar accumulative-sugar + psugar
   set psugar 0
-  set message-buffer ""
-  stop
+  set next-task [-> chill]
+  set state "chilling"
+
+  hubnet-send user-id "message" ""
+end
+
+to go-to-school-pressed
+  ifelse state = "schooling" [
+    hubnet-send user-id "message" "you are already at school"
+  ][
+    ifelse state = "chilling" [
+      set state "schooling"
+      set my-timer 10
+      set next-task [-> school]
+      hubnet-send user-id "message" "at school..."
+    ][
+    hubnet-send user-id "message" word "can't go to school because you are" state
+    ]
+  ]
+end
+
+to school
+  ifelse my-timer > 0 [
+    set my-timer my-timer - 1
+  ][
+    set sugar sugar + 100        ;;;;;;;;;change the behavior to schooling
+    hubnet-send user-id "message" "You graduated and your vision expanded by 1"
+    set next-task [-> chill]
+    set state "chilling"
+  ]
+end
+
+to invest-pressed
+  ifelse state = "investing" [
+    hubnet-send user-id "message" "you are already investing"
+  ][
+    if state = "chilling" [
+      set state "investing"
+      set my-timer 10
+      set next-task [-> invest]
+      hubnet-send user-id "message" "investing..."
+  ]]
+end
+
+to invest
+  ifelse my-timer > 0 [
+    set my-timer my-timer - 1
+  ][
+    set sugar sugar + 100
+    set next-task [-> chill]
+    set state "chilling"
+    hubnet-send user-id "message" "investment return this period: 100 sugar"
+  ]
 end
 
 to patch-recolor
@@ -507,7 +604,7 @@ poverty-line
 poverty-line
 0
 2000
-1000.0
+100.0
 50
 1
 sugar
