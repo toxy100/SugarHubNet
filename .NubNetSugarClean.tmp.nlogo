@@ -24,6 +24,7 @@ students-own
   max-age
   generation  ;;;;;;;;;when turtles die, they are not removed from the model. Instead, they "reborn" with new randomly assigned environment and traits
               ;;;;;;;;;generation starts with 1 when students log in, and increase by 1 after each time they are reborn.
+  accumulative-sugar
   at-school? ;; true if the student is at school
   investing?
   my-timer  ;; a countdown timer to disable movements when in a certain state, such as at school
@@ -149,10 +150,24 @@ end
 
 to send-info-to-clients
   hubnet-send-override hubnet-message-source patch-here "pcolor" [true-color]
-  hubnet-send user-id "generation" generation
-  hubnet-send user-id "sugar" sugar
+
+  hubnet-send user-id "user-id" user-id
+  hubnet-send user-id "vision" vision
+  hubnet-send user-id "metabolism" metabolism
   hubnet-send user-id "age" age
-  hubnet-send user-id "my-timer" my-timer
+  hubnet-send user-id "generation" generation
+  hubnet-send user-id "count-down" my-timer
+
+  hubnet-send user-id "current-sugar" sugar
+  hubnet-send user-id "wealth-ranking" (position sugar reverse sort [sugar] of students) + 1
+  hubnet-send user-id "accumulative-sugar" accumulative-sugar
+  hubnet-send user-id "rate-of-return" investment-rate-of-return
+  hubnet-send user-id "tax-rate" tax-rate
+
+end
+
+to-report tax-rate
+  ifelse sugar > 1000 [report tax-rate-rich][report tax-rate-poor]
 end
 
 ;;;;;;;;;;;;;;;;;HubNet Commands;;;;;;;;;;;
@@ -283,9 +298,9 @@ ticks
 
 SLIDER
 5
-106
+95
 206
-139
+128
 maximum-sugar-endowment
 maximum-sugar-endowment
 0
@@ -298,9 +313,9 @@ HORIZONTAL
 
 SLIDER
 5
-74
+63
 206
-107
+96
 minimum-sugar-endowment
 minimum-sugar-endowment
 0
@@ -347,9 +362,9 @@ NIL
 
 SWITCH
 5
-159
+141
 206
-192
+174
 generations
 generations
 1
@@ -358,9 +373,9 @@ generations
 
 SWITCH
 5
-191
+173
 206
-224
+206
 inheritance
 inheritance
 1
@@ -368,10 +383,10 @@ inheritance
 -1000
 
 SWITCH
-736
-227
-937
-260
+5
+300
+206
+333
 education
 education
 1
@@ -380,9 +395,9 @@ education
 
 SWITCH
 5
-272
+220
 206
-305
+253
 investment
 investment
 1
@@ -409,7 +424,7 @@ tax-rate-poor
 tax-rate-poor
 0
 100
-25.0
+21.0
 1
 1
 %
@@ -424,7 +439,7 @@ tax-rate-rich
 tax-rate-rich
 0
 100
-25.0
+29.0
 1
 1
 %
@@ -432,14 +447,14 @@ HORIZONTAL
 
 SLIDER
 5
-304
+252
 206
-337
+285
 investment-rate-of-return
 investment-rate-of-return
 0
 100
-10.0
+9.0
 1
 1
 NIL
@@ -796,7 +811,7 @@ BUTTON
 77
 212
 146
-256
+245
 up
 NIL
 NIL
@@ -810,7 +825,7 @@ BUTTON
 77
 256
 146
-300
+289
 down
 NIL
 NIL
@@ -824,7 +839,7 @@ BUTTON
 8
 256
 77
-300
+289
 left
 NIL
 NIL
@@ -838,7 +853,7 @@ BUTTON
 146
 256
 215
-300
+289
 right
 NIL
 NIL
@@ -994,7 +1009,7 @@ BUTTON
 124
 318
 215
-362
+351
 harvest
 NIL
 NIL
@@ -1008,7 +1023,7 @@ BUTTON
 6
 405
 219
-448
+438
 invest
 NIL
 NIL
@@ -1022,7 +1037,7 @@ BUTTON
 8
 318
 124
-362
+351
 go-to-school
 NIL
 NIL
