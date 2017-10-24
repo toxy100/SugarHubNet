@@ -27,6 +27,7 @@ students-own
   accumulative-sugar
   at-school? ;; true if the student is at school
   investing?
+  message-buffer
   my-timer  ;; a countdown timer to disable movements when in a certain state, such as at school
 ]
 
@@ -79,7 +80,7 @@ to go
       patch-recolor
     ]
     ask students [
-
+      execute-command message-buffer
       send-info-to-clients
     ]
     update-lorenz-and-gini
@@ -99,7 +100,7 @@ to listen-clients
       ifelse hubnet-exit-message?
       [ remove-student ]
       [ ask students with [user-id = hubnet-message-source]
-        [ execute-command hubnet-message-tag ]
+        [ ask students with [user-id = hubnet-message-source] [set message-buffer hubnet-message-tag ]];execute-command hubnet-message-tag ]
       ]
     ]
   ]
@@ -167,7 +168,7 @@ to send-info-to-clients
 end
 
 to-report tax-rate
-  ifelse sugar > 1000 [report tax-rate-rich][report tax-rate-poor]
+  ifelse sugar > poverty-line [report tax-rate-rich][report tax-rate-poor]
 end
 
 ;;;;;;;;;;;;;;;;;HubNet Commands;;;;;;;;;;;
@@ -178,6 +179,7 @@ to execute-move [new-heading]
   visualize-view-points
   set sugar sugar - 1
   send-info-to-clients
+  set message-buffer ""
   stop
 end
 
@@ -203,7 +205,9 @@ end
 
 to harvest
   set sugar (sugar - metabolism + psugar)
+  set accumulative-sugar accumulative-sugar + sugar
   set psugar 0
+  set message-buffer ""
   stop
 end
 
@@ -272,11 +276,11 @@ end
 GRAPHICS-WINDOW
 210
 10
-647
-448
+718
+519
 -1
 -1
-13.0
+10.0
 1
 10
 1
@@ -286,10 +290,10 @@ GRAPHICS-WINDOW
 1
 1
 1
--16
-16
--16
-16
+0
+49
+0
+49
 0
 0
 1
@@ -305,7 +309,7 @@ maximum-sugar-endowment
 maximum-sugar-endowment
 0
 100
-50.0
+100.0
 1
 1
 NIL
@@ -384,9 +388,9 @@ inheritance
 
 SWITCH
 5
-300
+371
 206
-333
+404
 education
 education
 1
@@ -395,9 +399,9 @@ education
 
 SWITCH
 5
-220
+291
 206
-253
+324
 investment
 investment
 1
@@ -406,9 +410,9 @@ investment
 
 SWITCH
 5
-349
+420
 206
-382
+453
 tax
 tax
 1
@@ -417,14 +421,14 @@ tax
 
 SLIDER
 5
-382
+453
 206
-415
+486
 tax-rate-poor
 tax-rate-poor
 0
 100
-21.0
+27.0
 1
 1
 %
@@ -432,14 +436,14 @@ HORIZONTAL
 
 SLIDER
 5
-415
+486
 206
-448
+519
 tax-rate-rich
 tax-rate-rich
 0
 100
-29.0
+49.0
 1
 1
 %
@@ -447,9 +451,9 @@ HORIZONTAL
 
 SLIDER
 5
-252
+323
 206
-285
+356
 investment-rate-of-return
 investment-rate-of-return
 0
@@ -458,6 +462,55 @@ investment-rate-of-return
 1
 1
 NIL
+HORIZONTAL
+
+BUTTON
+334
+537
+439
+570
+show-world
+ask patches [set pcolor true-color]
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+BUTTON
+460
+537
+560
+570
+hide-world
+ask patches [set pcolor gray]
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+SLIDER
+4
+227
+205
+260
+poverty-line
+poverty-line
+0
+2000
+1000.0
+50
+1
+sugar
 HORIZONTAL
 
 @#$#@#$#@
@@ -880,10 +933,10 @@ VIEW
 1
 1
 1
--16
-16
--16
-16
+0
+49
+0
+49
 
 MONITOR
 6

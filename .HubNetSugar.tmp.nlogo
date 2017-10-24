@@ -8,7 +8,7 @@ breed [ students student ]
 patches-own [
   psugar           ;; the amount of sugar on this patch
   max-psugar       ;; the maximum amount of sugar that can be on this patch
-  true-color       ;; since all the patches will appear to be grey when hiding the world, they need a variable to store their true color
+  true-color
 ]
 
 students-own
@@ -22,16 +22,22 @@ students-own
   vision-points   ;; the points that this turtle can see in relative to it's current position (based on vision)
   age             ;; the current age of this turtle (in ticks)
   max-age
+;  current-ranking       ;;;;;;;the current place of the student among all the students in terms of wealth
+  current-wealth        ;;;;;;;the wealth of the current generation
+  historical-wealth     ;;;;;;;the sum of wealth over generations
   generation  ;;;;;;;;;when turtles die, they are not removed from the model. Instead, they "reborn" with new randomly assigned environment and traits
               ;;;;;;;;;generation starts with 1 when students log in, and increase by 1 after each time they are reborn.
-  accumulative-sugar
+  insured? ;; true if the student bought insurance for the current period
   at-school? ;; true if the student is at school
   investing?
-  message-buffer
   my-timer  ;; a countdown timer to disable movements when in a certain state, such as at school
+  message-buffer ;; stores the last client operation from hubnet-fetch-message, so it can be executed after a period of delay, instead of immediatly.
 ]
 
-;;;;;;;;;;;;;;;;;; Setup Procedures ;;;;;;;;;;;;;;;
+
+;;
+;; Setup Procedures
+;;
 
 to startup
   hubnet-reset
@@ -41,15 +47,19 @@ to setup
   clear-patches
   clear-drawing
   clear-output
+  setup-patches
   ask students
   [
     refresh-turtle
     set generation 1
+;    set next-task [->]
   ]
+
   if maximum-sugar-endowment <= minimum-sugar-endowment [
     user-message "Oops: the maximum-sugar-endowment must be larger than the minimum-sugar-endowment"
     stop
   ]
+
   setup-patches
   update-lorenz-and-gini
   reset-ticks
@@ -67,7 +77,9 @@ to setup-patches
   file-close
 end
 
-;;;;;;;;;;;;;;Run Time Procedure;;;;;;;;;;;;;
+;;
+;; Runtime Procedures
+;;
 
 to go
   listen-clients
@@ -80,15 +92,67 @@ to go
       patch-recolor
     ]
     ask students [
-      execute-command message-buffer
+      ifelse at-school? [
+
+      ][
+        ifelse investing? [
+
+        ][
+          execute-command message-buffer
+        ];investing? false
+
+      ];at-school? false
+
+;      school
+;      invest
+
+      ;      if (ticks mod 12) = 0 [set age (age + 1)]
+;      if sugar <= 0 [
+;        hubnet-send user-id "message" "you died due to starvation"
+;        refresh-turtle
+;        stop
+;      ]
+;      if age > max-age [
+;        hubnet-send user-id "message" word "You died at age " age
+;        refresh-turtle
+;        stop
+;      ]
+;      run next-task
       send-info-to-clients
+      set message-buffer ""
     ]
     update-lorenz-and-gini
     tick
   ]
 end
 
-;;;;;;;;;;;NubNet Procedures;;;;;;;;;;;;;
+;to school
+;  ifelse my-timer > 0 [
+;    set my-timer my-timer - 1
+;    set sugar sugar - 1
+;  ][
+;    ifelse at-school? [
+;      set vision vision + 1
+;      set at-school? false
+;      visualize-view-points
+;    ][
+;      execute-command message-buffer
+;    ]
+;  ]
+;end
+
+to invest
+  ifelse my-timer > 0 [
+    set my-timer my-timer - 1
+  ][
+    ifelse investing? [
+      set sugar sugar + 1000
+      set investing? false
+    ][
+      execute-command message-buffer
+    ]
+  ]
+end
 
 to listen-clients
   while [ hubnet-message-waiting? ]
@@ -100,7 +164,7 @@ to listen-clients
       ifelse hubnet-exit-message?
       [ remove-student ]
       [ ask students with [user-id = hubnet-message-source]
-        [ ask students with [user-id = hubnet-message-source] [set message-buffer hubnet-message-tag ]];execute-command hubnet-message-tag ]
+        [ set message-buffer hubnet-message-tag] ;execute-command hubnet-message-tag ]
       ]
     ]
   ]
@@ -119,16 +183,25 @@ to create-new-student
   ]
 end
 
+;;;;;;;;;;;;;;;;
+
+;;;;;;;;;;;;;;;;;;
+
 to refresh-turtle
   move-to one-of patches with [not any? other turtles-here]
   set sugar random-in-range minimum-sugar-endowment maximum-sugar-endowment
   set metabolism random-in-range 1 4
   set max-age random-in-range 60 100
   set age 0
+  set current-wealth 0
+  set historical-wealth 0
   set vision random-in-range 1 6
   set vision-points nobody
+;  set step-size 1
+  set insured? false
   set investing? false
   set at-school? false
+  set message-buffer ""
   hubnet-send user-id "message" ""
   hubnet-send-follow hubnet-message-source self 7
   send-info-to-clients
@@ -140,38 +213,54 @@ to remove-student
 end
 
 to execute-command [command]
+  if command = "" [stop]
   if command = "up" [ execute-move 0 ]
   if command = "down" [ execute-move 180 ]
   if command = "right" [ execute-move 90 ]
   if command = "left" [ execute-move 270 ]
   if command = "harvest" [ harvest ]
-  if command = "go-to-school" []
-  if command = "invest" []
+  ;  if command = "step-size" [ set step-size hubnet-message stop ]
+  ;  if command = "buy-insurance" [set insured? true]
+  if command = "go-to-school" [
+    ifelse vision < 6 [
+      set at-school? true
+      set my-timer 50
+    ][
+      hubnet-send user-id "message" "you already have maximum vision"
+    ]
+    stop
+  ]
+  if command = "invest" [
+    ifelse sugar < 1000 [
+      hubnet-send user-id "message" "Min Investment 1000 Sugar"
+      wait 1
+      hubnet-send user-id "message" ""
+    ][
+      ifelse investing? [
+        hubnet-send user-id "message" "Already investing"
+        wait 1
+        hubnet-send user-id "message" ""
+      ][
+        set investing? true
+        set my-timer 40
+      ]
+    ]
+    stop
+  ]
 end
 
 to send-info-to-clients
   hubnet-send-override hubnet-message-source patch-here "pcolor" [true-color]
-
-  hubnet-send user-id "user-id" user-id
-  hubnet-send user-id "vision" vision
-  hubnet-send user-id "metabolism" metabolism
-  hubnet-send user-id "age" age
+  hubnet-send user-id "location" (word "(" pxcor "," pycor ")")
   hubnet-send user-id "generation" generation
-  hubnet-send user-id "count-down" my-timer
+  hubnet-send user-id "sugar" sugar
+  hubnet-send user-id "historical-wealth" historical-wealth
+  hubnet-send user-id "rank" (position sugar reverse (sort [sugar] of students)) + 1
+  hubnet-send user-id "age" age
+  hubnet-send user-id "my-timer" my-timer
 
-  hubnet-send user-id "current-sugar" sugar
-  hubnet-send user-id "wealth-ranking" (position sugar reverse sort [sugar] of students) + 1
-  hubnet-send user-id "accumulative-sugar" accumulative-sugar
-  hubnet-send user-id "rate-of-return" investment-rate-of-return
-  hubnet-send user-id "tax-rate" tax-rate
 
 end
-
-to-report tax-rate
-  ifelse sugar > poverty-line [report tax-rate-rich][report tax-rate-poor]
-end
-
-;;;;;;;;;;;;;;;;;HubNet Commands;;;;;;;;;;;
 
 to execute-move [new-heading]
   set heading new-heading
@@ -179,8 +268,21 @@ to execute-move [new-heading]
   visualize-view-points
   set sugar sugar - 1
   send-info-to-clients
-  set message-buffer ""
   stop
+end
+
+to harvest
+  set sugar (sugar - metabolism + psugar)
+  set psugar 0
+  stop
+end
+
+to patch-recolor
+  set true-color (yellow + 4.9 - psugar)
+end
+
+to patch-growback
+  set psugar min (list max-psugar (psugar + 1))
 end
 
 to calculate-view-points [dist]
@@ -196,27 +298,14 @@ to calculate-view-points [dist]
   ]
 end
 
+to insure
+end
+
 to visualize-view-points
     hubnet-clear-overrides hubnet-message-source
     calculate-view-points vision
     hubnet-send-override hubnet-message-source vision-points "pcolor" [true-color]
     set vision-points nobody
-end
-
-to harvest
-  set sugar (sugar - metabolism + psugar)
-  set accumulative-sugar accumulative-sugar + sugar
-  set psugar 0
-  set message-buffer ""
-  stop
-end
-
-to patch-recolor
-  set true-color (yellow + 4.9 - psugar)
-end
-
-to patch-growback
-  set psugar min (list max-psugar (psugar + 1))
 end
 
 to update-lorenz-and-gini
@@ -229,7 +318,6 @@ to update-lorenz-and-gini
   let index 0
   set gini-index-reserve 0
   set lorenz-points []
-
   repeat num-people [
     set wealth-sum-so-far (wealth-sum-so-far + item index sorted-wealths)
     set lorenz-points lput ((wealth-sum-so-far / total-wealth) * 100) lorenz-points
@@ -241,46 +329,42 @@ to update-lorenz-and-gini
   ]
 end
 
+;;
+;; Utilities
+;;
+
 to-report random-in-range [low high]
   report low + random (high - low + 1)
 end
 
+;;
+;; Visualization Procedures
+;;
 
-;  if command = "go-to-school" [
-;    ifelse vision < 6 [
-;      set at-school? true
-;      set my-timer 50
-;    ][
-;      hubnet-send user-id "message" "you already have maximum vision"
-;    ]
-;    stop
-;  ]
-;  if command = "invest" [
-;    ifelse sugar < 1000 [
-;      hubnet-send user-id "message" "Min Investment 1000 Sugar"
-;      wait 1
-;      hubnet-send user-id "message" ""
-;    ][
-;      ifelse investing? [
-;        hubnet-send user-id "message" "Already investing"
-;        wait 1
-;        hubnet-send user-id "message" ""
-;      ][
-;        set investing? true
-;        set my-timer 40
-;      ]
-;    ]
-;    stop
-;  ]
+to no-visualization ;; turtle procedure
+  set color red
+end
+
+to color-agents-by-vision ;; turtle procedure
+  set color red - (vision - 3.5)
+end
+
+to color-agents-by-metabolism ;; turtle procedure
+  set color red + (metabolism - 2.5)
+end
+
+
+; Copyright 2009 Uri Wilensky.
+; See Info tab for full copyright and license.
 @#$#@#$#@
 GRAPHICS-WINDOW
-210
+300
 10
-718
-519
+708
+419
 -1
 -1
-10.0
+8.0
 1
 10
 1
@@ -294,47 +378,17 @@ GRAPHICS-WINDOW
 49
 0
 49
-0
-0
+1
+1
 1
 ticks
 30.0
 
-SLIDER
-5
-95
-206
-128
-maximum-sugar-endowment
-maximum-sugar-endowment
-0
-100
-100.0
-1
-1
-NIL
-HORIZONTAL
-
-SLIDER
-5
-63
-206
-96
-minimum-sugar-endowment
-minimum-sugar-endowment
-0
-100
-5.0
-1
-1
-NIL
-HORIZONTAL
-
 BUTTON
-5
 10
-96
-57
+95
+90
+135
 NIL
 setup
 NIL
@@ -348,10 +402,10 @@ NIL
 1
 
 BUTTON
-114
-10
-205
-57
+100
+95
+190
+135
 NIL
 go
 T
@@ -362,114 +416,116 @@ NIL
 NIL
 NIL
 NIL
-1
+0
 
-SWITCH
-5
-141
-206
-174
-generations
-generations
+BUTTON
+200
+95
+290
+135
+go once
+go
+NIL
 1
-1
--1000
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+0
 
-SWITCH
-5
-173
-206
-206
-inheritance
-inheritance
-1
-1
--1000
-
-SWITCH
-5
-371
-206
-404
-education
-education
-1
-1
--1000
-
-SWITCH
-5
-291
-206
-324
-investment
-investment
-1
-1
--1000
-
-SWITCH
-5
-420
-206
-453
-tax
-tax
-1
-1
--1000
+PLOT
+720
+10
+925
+140
+Wealth distribution
+NIL
+NIL
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" "set-histogram-num-bars 10\nset-plot-x-range 0 (max [sugar] of turtles)\nset-plot-pen-interval ((max [sugar] of turtles) / 10)"
+PENS
+"default" 1.0 1 -16777216 true "" "histogram ([sugar] of turtles)"
 
 SLIDER
-5
-453
-206
-486
-tax-rate-poor
-tax-rate-poor
+10
+10
+290
+43
+minimum-sugar-endowment
+minimum-sugar-endowment
 0
-100
-27.0
+200
+5.0
 1
 1
-%
+NIL
 HORIZONTAL
 
-SLIDER
-5
-486
-206
-519
-tax-rate-rich
-tax-rate-rich
-0
-100
-49.0
-1
-1
-%
-HORIZONTAL
+PLOT
+720
+145
+925
+295
+Lorenz curve
+Pop %
+Wealth %
+0.0
+100.0
+0.0
+100.0
+false
+true
+"" ""
+PENS
+"equal" 100.0 0 -16777216 true ";; draw a straight line from lower left to upper right\nset-current-plot-pen \"equal\"\nplot 0\nplot 100" ""
+"lorenz" 1.0 0 -2674135 true "" "plot-pen-reset\nset-plot-pen-interval 100 / count turtles\nplot 0\nforeach lorenz-points plot"
+
+PLOT
+720
+300
+925
+440
+Gini index vs. time
+Time
+Gini
+0.0
+100.0
+0.0
+1.0
+true
+false
+"" ""
+PENS
+"default" 1.0 0 -13345367 true "" "plot (gini-index-reserve / count turtles) * 2"
 
 SLIDER
-5
-323
-206
-356
-investment-rate-of-return
-investment-rate-of-return
+10
+50
+290
+83
+maximum-sugar-endowment
+maximum-sugar-endowment
 0
-100
-9.0
+200
+100.0
 1
 1
 NIL
 HORIZONTAL
 
 BUTTON
-334
-537
-439
-570
-show-world
+105
+325
+195
+365
+show world
 ask patches [set pcolor true-color]
 NIL
 1
@@ -482,11 +538,11 @@ NIL
 1
 
 BUTTON
-460
-537
-560
-570
-hide-world
+195
+325
+285
+365
+hide world
 ask patches [set pcolor gray]
 NIL
 1
@@ -498,57 +554,143 @@ NIL
 NIL
 1
 
-SLIDER
-4
-227
-205
-260
-poverty-line
-poverty-line
-0
-2000
-100.0
-50
+BUTTON
+105
+380
+195
+420
+show label
+ask turtles [set label user-id]
+NIL
 1
-sugar
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+BUTTON
+195
+380
+285
+420
+hide label
+ask turtles [set label \"\"]
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+SLIDER
+10
+160
+187
+193
+insurance-premium
+insurance-premium
+5
+100
+0.0
+1
+1
+NIL
 HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?
 
-(a general understanding of what the model is trying to show or explain)
+This third model in the NetLogo Sugarscape suite implements Epstein & Axtell's Sugarscape Wealth Distribution model, as described in chapter 2 of their book Growing Artificial Societies: Social Science from the Bottom Up. It provides a ground-up simulation of inequality in wealth. Only a minority of the population have above average wealth, while most agents have wealth near the same level as the initial endowment.
+
+The inequity of the resulting distribution can be described graphically by the Lorenz curve and quantitatively by the Gini coefficient.
 
 ## HOW IT WORKS
 
-(what rules the agents use to create the overall behavior of the model)
+Each patch contains some sugar, the maximum amount of which is predetermined. At each tick, each patch regains one unit of sugar, until it reaches the maximum amount.
+The amount of sugar a patch currently contains is indicated by its color; the darker the yellow, the more sugar.
+
+At setup, agents are placed at random within the world. Each agent can only see a certain distance horizontally and vertically. At each tick, each agent will move to the nearest unoccupied location within their vision range with the most sugar, and collect all the sugar there.  If its current location has as much or more sugar than any unoccupied location it can see, it will stay put.
+
+Agents also use (and thus lose) a certain amount of sugar each tick, based on their metabolism rates. If an agent runs out of sugar, it dies.
+
+Each agent also has a maximum age, which is assigned randomly from the range 60 to 100 ticks.  When the agent reaches an age beyond its maximum age, it dies.
+
+Whenever an agent dies (either from starvation or old age), a new randomly initialized agent is created somewhere in the world; hence, in this model the global population count stays constant.
 
 ## HOW TO USE IT
 
-(how to use the model, including a description of each of the items in the Interface tab)
+The INITIAL-POPULATION slider sets how many agents are in the world.
+
+The MINIMUM-SUGAR-ENDOWMENT and MAXIMUM-SUGAR-ENDOWMENT sliders set the initial amount of sugar ("wealth") each agent has when it hatches. The actual value is randomly chosen from the given range.
+
+Press SETUP to populate the world with agents and import the sugar map data. GO will run the simulation continuously, while GO ONCE will run one tick.
+
+The VISUALIZATION chooser gives different visualization options and may be changed while the GO button is pressed. When NO-VISUALIZATION is selected all the agents will be red. When COLOR-AGENTS-BY-VISION is selected the agents with the longest vision will be darkest and, similarly, when COLOR-AGENTS-BY-METABOLISM is selected the agents with the lowest metabolism will be darkest.
+
+The WEALTH-DISTRIBUTION histogram on the right shows the distribution of wealth.
+
+The LORENZ CURVE plot shows what percent of the wealth is held by what percent of the population, and the the GINI-INDEX V. TIME plot shows a measure of the inequity of the distribution over time.  A GINI-INDEX of 0 equates to everyone having the exact same amount of wealth (collected sugar), and a GINI-INDEX of 1 equates to the most skewed wealth distribution possible, where a single person has all the sugar, and no one else has any.
 
 ## THINGS TO NOTICE
 
-(suggested things for the user to notice while running the model)
+After running the model for a while, the wealth distribution histogram shows that there are many more agents with low wealth than agents with high wealth.
+
+Some agents will have less than the minimum initial wealth (MINIMUM-SUGAR-ENDOWMENT), if the minimum initial wealth was greater than 0.
 
 ## THINGS TO TRY
 
-(suggested things for the user to try to do (move sliders, switches, etc.) with the model)
+How does the initial population affect the wealth distribution? How long does it take for the skewed distribution to emerge?
 
-## EXTENDING THE MODEL
-
-(suggested things to add or change in the Code tab to make the model more complicated, detailed, accurate, etc.)
+How is the wealth distribution affected when you change the initial endowments of wealth?
 
 ## NETLOGO FEATURES
 
-(interesting or unusual features of NetLogo that the model uses, particularly in the Code tab; or where workarounds were needed for missing features)
+All of the Sugarscape models create the world by using `file-read` to import data from an external file, `sugar-map.txt`. This file defines both the initial and the maximum sugar value for each patch in the world.
+
+Since agents cannot see diagonally we cannot use `in-radius` to find the patches in the agents' vision.  Instead, we use `at-points`.
 
 ## RELATED MODELS
 
-(models in the NetLogo Models Library and elsewhere which are of related interest)
+Other models in the NetLogo Sugarscape suite include:
+
+* Sugarscape 1 Immediate Growback
+* Sugarscape 2 Constant Growback
+
+For more explanation of the Lorenz curve and the Gini index, see the Info tab of the Wealth Distribution model.  (That model is also based on Epstein and Axtell's Sugarscape model, but more loosely.)
 
 ## CREDITS AND REFERENCES
 
-(a reference to the model's URL on the web if it has one, as well as any other necessary credits, citations, and links)
+Epstein, J. and Axtell, R. (1996). Growing Artificial Societies: Social Science from the Bottom Up.  Washington, D.C.: Brookings Institution Press.
+
+## HOW TO CITE
+
+If you mention this model or the NetLogo software in a publication, we ask that you include the citations below.
+
+For the model itself:
+
+* Li, J. and Wilensky, U. (2009).  NetLogo Sugarscape 3 Wealth Distribution model.  http://ccl.northwestern.edu/netlogo/models/Sugarscape3WealthDistribution.  Center for Connected Learning and Computer-Based Modeling, Northwestern University, Evanston, IL.
+
+Please cite the NetLogo software as:
+
+* Wilensky, U. (1999). NetLogo. http://ccl.northwestern.edu/netlogo/. Center for Connected Learning and Computer-Based Modeling, Northwestern University, Evanston, IL.
+
+## COPYRIGHT AND LICENSE
+
+Copyright 2009 Uri Wilensky.
+
+![CC BY-NC-SA 3.0](http://ccl.northwestern.edu/images/creativecommons/byncsa.png)
+
+This work is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 3.0 License.  To view a copy of this license, visit https://creativecommons.org/licenses/by-nc-sa/3.0/ or send a letter to Creative Commons, 559 Nathan Abbott Way, Stanford, California 94305, USA.
+
+Commercial licenses are also available. To inquire about commercial licenses, please contact Uri Wilensky at uri@northwestern.edu.
+
+<!-- 2009 Cite: Li, J. -->
 @#$#@#$#@
 default
 true
@@ -742,22 +884,6 @@ Polygon -7500403 true true 135 105 90 60 45 45 75 105 135 135
 Polygon -7500403 true true 165 105 165 135 225 105 255 45 210 60
 Polygon -7500403 true true 135 90 120 45 150 15 180 45 165 90
 
-sheep
-false
-15
-Circle -1 true true 203 65 88
-Circle -1 true true 70 65 162
-Circle -1 true true 150 105 120
-Polygon -7500403 true false 218 120 240 165 255 165 278 120
-Circle -7500403 true false 214 72 67
-Rectangle -1 true true 164 223 179 298
-Polygon -1 true true 45 285 30 285 30 240 15 195 45 210
-Circle -1 true true 3 83 150
-Rectangle -1 true true 65 221 80 296
-Polygon -1 true true 195 285 210 285 210 240 240 210 195 210
-Polygon -7500403 true false 276 85 285 105 302 99 294 83
-Polygon -7500403 true false 219 85 210 105 193 99 201 83
-
 square
 false
 0
@@ -842,29 +968,57 @@ Line -7500403 true 40 84 269 221
 Line -7500403 true 40 216 269 79
 Line -7500403 true 84 40 221 269
 
-wolf
-false
-0
-Polygon -16777216 true false 253 133 245 131 245 133
-Polygon -7500403 true true 2 194 13 197 30 191 38 193 38 205 20 226 20 257 27 265 38 266 40 260 31 253 31 230 60 206 68 198 75 209 66 228 65 243 82 261 84 268 100 267 103 261 77 239 79 231 100 207 98 196 119 201 143 202 160 195 166 210 172 213 173 238 167 251 160 248 154 265 169 264 178 247 186 240 198 260 200 271 217 271 219 262 207 258 195 230 192 198 210 184 227 164 242 144 259 145 284 151 277 141 293 140 299 134 297 127 273 119 270 105
-Polygon -7500403 true true -1 195 14 180 36 166 40 153 53 140 82 131 134 133 159 126 188 115 227 108 236 102 238 98 268 86 269 92 281 87 269 103 269 113
-
 x
 false
 0
 Polygon -7500403 true true 270 75 225 30 30 225 75 270
 Polygon -7500403 true true 30 75 75 30 270 225 225 270
 @#$#@#$#@
-NetLogo 6.0.2
+NetLogo 6.0.3-M1
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@
+MONITOR
+25
+440
+87
+489
+location
+NIL
+1
+1
+
+SLIDER
+20
+80
+192
+113
+step-size
+step-size
+1.0
+4.0
+0
+1.0
+1
+NIL
+HORIZONTAL
+
+MONITOR
+10
+10
+295
+59
+message
+NIL
+0
+1
+
 BUTTON
-77
-212
-146
-245
+90
+150
+153
+183
 up
 NIL
 NIL
@@ -875,10 +1029,10 @@ NIL
 W
 
 BUTTON
-77
-256
-146
-289
+90
+185
+152
+218
 down
 NIL
 NIL
@@ -889,10 +1043,10 @@ NIL
 S
 
 BUTTON
-8
-256
-77
-289
+25
+185
+88
+218
 left
 NIL
 NIL
@@ -903,10 +1057,10 @@ NIL
 A
 
 BUTTON
-146
-256
-215
-289
+155
+185
+218
+218
 right
 NIL
 NIL
@@ -917,10 +1071,10 @@ NIL
 D
 
 VIEW
-229
-9
-829
-609
+310
+10
+905
+595
 0
 0
 0
@@ -939,130 +1093,50 @@ VIEW
 49
 
 MONITOR
-6
-157
-218
-206
-message
-NIL
-0
-1
-
-MONITOR
-56
-108
-134
-157
+25
+230
+102
+279
 generation
 NIL
-3
+0
 1
 
 MONITOR
-6
-10
-218
-59
-user-id
+110
+230
+212
+279
+sugar
 NIL
 0
 1
 
 MONITOR
-7
-456
-125
-505
-current-sugar
-NIL
-0
-1
-
-MONITOR
-134
-108
-218
+25
+285
 157
-count-down
+334
+historical-wealth
 NIL
 0
 1
 
 MONITOR
-6
-108
-56
-157
-age
-NIL
-0
-1
-
-MONITOR
-6
-59
-109
-108
-vision
-NIL
-0
-1
-
-MONITOR
-109
-59
-218
-108
-metabolism
-NIL
-0
-1
-
-MONITOR
-125
-456
-219
-505
-wealth-ranking
-NIL
-0
-1
-
-MONITOR
-7
-505
-219
-554
-accumulative-sugar
-NIL
-0
-1
-
-MONITOR
-126
-560
-220
-609
-tax-rate
-NIL
-0
-1
-
-MONITOR
-8
-560
-126
-609
-rate-of-return
+215
+230
+272
+279
+rank
 NIL
 0
 1
 
 BUTTON
-124
-318
-215
-351
+225
+150
+305
+183
 harvest
 NIL
 NIL
@@ -1072,25 +1146,35 @@ OBSERVER
 NIL
 H
 
+MONITOR
+215
+80
+272
+129
+age
+NIL
+0
+1
+
 BUTTON
-6
-405
-219
-438
-invest
+25
+355
+147
+388
+buy-insurance
 NIL
 NIL
 1
 T
 OBSERVER
 NIL
-J
+NIL
 
 BUTTON
-8
-318
-124
-351
+160
+355
+272
+388
 go-to-school
 NIL
 NIL
@@ -1098,22 +1182,31 @@ NIL
 T
 OBSERVER
 NIL
-K
+NIL
 
-SLIDER
-6
-372
-219
-405
-investment-percentage
-investment-percentage
-0.0
-100.0
+MONITOR
+175
+285
+242
+334
+my-timer
+NIL
 0
-10.0
 1
-%
-HORIZONTAL
+
+BUTTON
+225
+185
+305
+218
+invest
+NIL
+NIL
+1
+T
+OBSERVER
+NIL
+I
 
 @#$#@#$#@
 default
@@ -1127,5 +1220,5 @@ true
 Line -7500403 true 150 150 90 180
 Line -7500403 true 150 150 210 180
 @#$#@#$#@
-0
+1
 @#$#@#$#@
