@@ -44,6 +44,7 @@ to setup
   ask students
   [
     refresh-turtle
+    hubnet-send user-id "message" "Welcome to SugarScape!"
     set generation 1
   ]
   if maximum-sugar-endowment <= minimum-sugar-endowment [
@@ -80,12 +81,54 @@ to go
       patch-recolor
     ]
     ask students [
-      run next-task          ;execute-command message-buffer
+      ifelse generations [
+        ifelse inheritance [
+          get-older
+          if age > max-age [ hubnet-send user-id "message" "you died due to age and now you are reborn as a child of the dead person" wait 5 inherit stop]
+          if sugar < 0 [ hubnet-send user-id "message" "you died due to poverty and now you are reborn as a child of the dead person" wait 5 inherit stop]
+          run next-task
+        ][
+          get-older
+          if age > max-age [ hubnet-send user-id "message" "you died due to age and now you are reborn as a random new person" wait 5 refresh-turtle set generation generation + 1 stop]
+          if sugar < 0 [ hubnet-send user-id "message" "you died due to poverty and now you are reborn as a random new person" wait 5 refresh-turtle set generation generation + 1 stop]
+          run next-task
+        ]
+      ]
+      [
+        if sugar < 0 [set sugar metabolism]; turtles don't die. they just stay alive
+        run next-task          ;execute-command message-buffer
+      ]
       send-info-to-clients
     ]
     update-lorenz-and-gini
     tick
   ]
+end
+
+to inherit
+  move-to one-of neighbors
+  if sugar <= 0 [
+    set sugar minimum-sugar-endowment
+  ]
+  set accumulative-sugar 0
+  set age 0
+  set generation generation + 1
+  set vision-points nobody
+  set next-task [-> chill]
+  set state "chilling"
+  hubnet-send-follow hubnet-message-source self 7
+  hubnet-send user-id "message" ""
+  send-info-to-clients
+end
+
+to get-older
+  if ticks mod 24 = 0 [set age age + 1]
+  hubnet-send user-id "age" age
+end
+
+to reborn-random
+  set generation generation + 1
+  hubnet-send user-id "message" "you died are reborn as a random new person"
 end
 
 ;;;;;;;;;;;NubNet Procedures;;;;;;;;;;;;;
@@ -123,7 +166,7 @@ end
 to refresh-turtle
   move-to one-of patches with [not any? other turtles-here]
   set sugar random-in-range minimum-sugar-endowment maximum-sugar-endowment
-  set accumulative-sugar sugar
+  set accumulative-sugar 0
   set metabolism random-in-range 1 4
   set max-age random-in-range 60 100
   set age 0
@@ -131,8 +174,8 @@ to refresh-turtle
   set vision-points nobody
   set next-task [-> chill]
   set state "chilling"
-  hubnet-send user-id "message" "Welcome to SugarScape!"
   hubnet-send-follow hubnet-message-source self 7
+  hubnet-send user-id "message" ""
   send-info-to-clients
 end
 
@@ -175,16 +218,6 @@ end
 
 ;;;;;;;;;;;;;;;;;HubNet Commands;;;;;;;;;;;
 
-;to execute-move [new-heading]
-;  set heading new-heading
-;  fd 1;step-size
-;  visualize-view-points
-;  set sugar sugar - 1
-;  send-info-to-clients
-;  set message-buffer ""
-;  stop
-;end
-
 to calculate-view-points [dist]
   if dist > 0 [
     set vision-points (patch-set
@@ -204,14 +237,6 @@ to visualize-view-points
     hubnet-send-override hubnet-message-source vision-points "pcolor" [true-color]
     set vision-points nobody
 end
-
-;to harvest
-;  set sugar (sugar - metabolism + psugar)
-;  set accumulative-sugar accumulative-sugar + sugar
-;  set psugar 0
-;  set message-buffer ""
-;  stop
-;end
 
 to chill
 end
@@ -261,17 +286,22 @@ end
 
 to go-to-school-pressed
   ifelse sugar > tuition [
-    ifelse state = "schooling" [
-      hubnet-send user-id "message" "you are already at school"
-    ][
-      ifelse state = "chilling" [
-        set state "schooling"
-        set my-timer 10
-        set next-task [-> school]
-        hubnet-send user-id "message" "at school..."
+    ifelse vision < 6 [
+      ifelse state = "schooling" [
+        hubnet-send user-id "message" "you are already at school"
       ][
-        hubnet-send user-id "message" word "can't go to school because you are" state
+        ifelse state = "chilling" [
+          set state "schooling"
+          set my-timer 48
+          set sugar sugar - tuition
+          set next-task [-> school]
+          hubnet-send user-id "message" "at school..."
+        ][
+          hubnet-send user-id "message" word "can't go to school because you are" state
+        ]
       ]
+    ][
+      hubnet-send user-id "message" "You already have the best vision"
     ]
   ][
     hubnet-send user-id "message" word "you need " word tuition " sugar for tuition"
@@ -282,16 +312,11 @@ to school
   ifelse my-timer > 0 [
     set my-timer my-timer - 1
   ][
-    ifelse vision < 6 [
-      set sugar sugar - 100
       set vision vision + 1
       visualize-view-points
       hubnet-send user-id "message" "You graduated with expanded vision"
       set next-task [-> chill]
       set state "chilling"
-    ][
-      hubnet-send user-id "message" "You already have the best vision"
-    ]
   ]
 end
 
@@ -356,7 +381,6 @@ end
 to-report random-in-range [low high]
   report low + random (high - low + 1)
 end
-
 @#$#@#$#@
 GRAPHICS-WINDOW
 210
@@ -456,7 +480,7 @@ SWITCH
 173
 generations
 generations
-1
+0
 1
 -1000
 
@@ -467,7 +491,7 @@ SWITCH
 205
 inheritance
 inheritance
-1
+0
 1
 -1000
 
@@ -605,10 +629,10 @@ SLIDER
 408
 tuition
 tuition
-50
-1000
-50.0
-50
+0
+2400
+24.0
+24
 1
 sugar
 HORIZONTAL
