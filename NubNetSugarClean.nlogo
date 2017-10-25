@@ -1,6 +1,7 @@
 globals [
   gini-index-reserve
   lorenz-points
+  total-tax
 ]
 
 breed [ students student ]
@@ -29,6 +30,7 @@ students-own
   state  ;; the current state a turtle is in. Used to switch between tasks. Can be either harvesting, investing, schooling, or chilling.
 ;  message-buffer
   investment-percentage
+  tax-paid
   my-timer  ;; a countdown timer to disable movements when in a certain state, such as at school
 ]
 
@@ -169,6 +171,7 @@ to refresh-turtle
   set sugar random-in-range minimum-sugar-endowment maximum-sugar-endowment
   set accumulative-sugar 0
   set investment-percentage 50
+  set tax-paid 0
   set metabolism random-in-range 1 4
   set max-age random-in-range 60 100
   set age 0
@@ -200,7 +203,7 @@ end
 to send-info-to-clients
   hubnet-send-override hubnet-message-source patch-here "pcolor" [true-color]
 
-  hubnet-send user-id "user-id" user-id
+;  hubnet-send user-id "user-id" user-id
   hubnet-send user-id "vision" vision
   hubnet-send user-id "metabolism" metabolism
   hubnet-send user-id "age" age
@@ -213,6 +216,7 @@ to send-info-to-clients
   hubnet-send user-id "wealth-ranking" (position sugar reverse sort [sugar] of students) + 1
   hubnet-send user-id "rate-of-return" investment-rate-of-return
   hubnet-send user-id "tax-rate" tax-rate
+  hubnet-send user-id "current-tax-paid" tax-paid
 
 end
 
@@ -279,8 +283,20 @@ end
 
 to harvest
   hubnet-send user-id "message" "harvesting..."
+  ifelse tax [
+    ifelse sugar > poverty-line [
+      set tax-paid psugar * tax-rate-rich / 100
+      set total-tax total-tax + tax-paid
+      set sugar sugar - metabolism + psugar - tax-paid
+    ][
+      set tax-paid psugar * tax-rate-poor / 100
+      set total-tax total-tax + tax-paid
+      set sugar sugar - metabolism + psugar - tax-paid
+    ]
+  ][
   set sugar (sugar - metabolism + psugar)
   set accumulative-sugar accumulative-sugar + psugar
+  ]
   set psugar 0
   set next-task [-> chill]
   set state "chilling"
@@ -354,8 +370,15 @@ to invest
     set my-timer my-timer - 1
   ][
     let principal sugar * investment-percentage / 100
-    set sugar sugar - principal + principal * (1 + investment-rate-of-return)
-    set next-task [-> chill]
+    let investment-return principal * (1 + investment-rate-of-return)
+    ifelse tax [
+      set tax-paid investment-return * tax-rate / 100
+      set total-tax total-tax + tax-paid
+      set sugar sugar - principal + investment-return - tax-paid
+    ][
+      set sugar sugar - principal + investment-return
+    ]
+    set next-task [ -> chill ]
     set state "chilling"
     hubnet-send user-id "message" "investment return this period: 100 sugar"
   ]
@@ -537,7 +560,7 @@ SWITCH
 453
 tax
 tax
-1
+0
 1
 -1000
 
@@ -580,7 +603,7 @@ investment-rate-of-return
 investment-rate-of-return
 0
 100
-17.0
+10.0
 1
 1
 NIL
@@ -644,7 +667,7 @@ tuition
 tuition
 0
 2400
-0.0
+24.0
 24
 1
 sugar
@@ -1099,10 +1122,10 @@ NIL
 D
 
 VIEW
-229
-9
-829
-609
+225
+67
+825
+667
 0
 0
 0
@@ -1122,32 +1145,22 @@ VIEW
 
 MONITOR
 6
-157
-218
-206
+10
+825
+59
 message
 NIL
 0
 1
 
 MONITOR
-56
-108
-134
-157
+57
+117
+135
+166
 generation
 NIL
 3
-1
-
-MONITOR
-6
-10
-218
-59
-user-id
-NIL
-0
 1
 
 MONITOR
@@ -1157,44 +1170,44 @@ MONITOR
 505
 current-sugar
 NIL
-0
+2
 1
 
 MONITOR
-134
-108
-218
-157
+135
+117
+219
+166
 count-down
 NIL
 0
 1
 
 MONITOR
-6
-108
-56
-157
+7
+117
+57
+166
 age
 NIL
 0
 1
 
 MONITOR
-6
-59
-109
-108
+7
+68
+110
+117
 vision
 NIL
 0
 1
 
 MONITOR
-109
-59
-218
-108
+110
+68
+219
+117
 metabolism
 NIL
 0
@@ -1221,20 +1234,20 @@ NIL
 1
 
 MONITOR
-126
-560
-220
-609
+7
+554
+75
+603
 tax-rate
 NIL
 0
 1
 
 MONITOR
-8
-560
-126
-609
+7
+603
+117
+652
 rate-of-return
 NIL
 0
@@ -1296,6 +1309,16 @@ investment-percentage
 1
 %
 HORIZONTAL
+
+MONITOR
+75
+554
+219
+603
+current-tax-paid
+NIL
+2
+1
 
 @#$#@#$#@
 default
