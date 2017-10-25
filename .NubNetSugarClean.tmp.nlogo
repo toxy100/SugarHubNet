@@ -27,7 +27,8 @@ students-own
   accumulative-sugar
   next-task  ;; the next task a turtle will run. Can be either harvest, invest, go-to-school, or chill.
   state  ;; the current state a turtle is in. Used to switch between tasks. Can be either harvesting, investing, schooling, or chilling.
-  message-buffer
+;  message-buffer
+  investment-percentage
   my-timer  ;; a countdown timer to disable movements when in a certain state, such as at school
 ]
 
@@ -167,6 +168,7 @@ to refresh-turtle
   move-to one-of patches with [not any? other turtles-here]
   set sugar random-in-range minimum-sugar-endowment maximum-sugar-endowment
   set accumulative-sugar 0
+  set investment-percentage 50
   set metabolism random-in-range 1 4
   set max-age random-in-range 60 100
   set age 0
@@ -192,6 +194,7 @@ to execute-command [command]
   if command = "harvest" [ harvest-pressed ]
   if command = "go-to-school" [ go-to-school-pressed ]
   if command = "invest" [ invest-pressed ]
+  if command = "investment-percentage" [ set investment-percentage hubnet-message ]
 end
 
 to send-info-to-clients
@@ -203,6 +206,7 @@ to send-info-to-clients
   hubnet-send user-id "age" age
   hubnet-send user-id "generation" generation
   hubnet-send user-id "count-down" my-timer
+  hubnet-send user-id "investment-percentage" investment-percentage
 
   hubnet-send user-id "current-sugar" sugar
   hubnet-send user-id "accumulative-sugar" accumulative-sugar
@@ -285,6 +289,7 @@ to harvest
 end
 
 to go-to-school-pressed
+  ifelse education [
   ifelse sugar > tuition [
     ifelse vision < 6 [
       ifelse state = "schooling" [
@@ -306,6 +311,9 @@ to go-to-school-pressed
   ][
     hubnet-send user-id "message" word "you need " word tuition " sugar for tuition"
   ]
+  ][
+    hubnet-send user-id "message" "education doesn't exist in this world"
+  ]
 end
 
 to school
@@ -321,6 +329,7 @@ to school
 end
 
 to invest-pressed
+  ifelse investm [][]
   ifelse sugar > poverty-line [
     ifelse state = "investing" [
       hubnet-send user-id "message" "you are already investing"
@@ -341,7 +350,8 @@ to invest
   ifelse my-timer > 0 [
     set my-timer my-timer - 1
   ][
-    set sugar sugar + 100
+    let principal sugar * investment-percentage / 100
+    set sugar sugar - principal + principal * (1 + investment-rate-of-return)
     set next-task [-> chill]
     set state "chilling"
     hubnet-send user-id "message" "investment return this period: 100 sugar"
@@ -502,7 +512,7 @@ SWITCH
 376
 education
 education
-1
+0
 1
 -1000
 
@@ -513,7 +523,7 @@ SWITCH
 296
 investment
 investment
-1
+0
 1
 -1000
 
@@ -567,7 +577,7 @@ investment-rate-of-return
 investment-rate-of-return
 0
 100
-9.0
+17.0
 1
 1
 NIL
@@ -631,7 +641,7 @@ tuition
 tuition
 0
 2400
-24.0
+0.0
 24
 1
 sugar
@@ -649,10 +659,10 @@ welfare
 -1000
 
 BUTTON
-560
-571
-679
-604
+520
+575
+639
+608
 hide-students
 ask turtles [ht]
 NIL
@@ -666,10 +676,10 @@ NIL
 1
 
 BUTTON
-689
-578
-814
-611
+643
+575
+768
+608
 show-students
 ask turtles [st]
 NIL
