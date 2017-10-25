@@ -103,8 +103,25 @@ to go
       ]
       send-info-to-clients
     ]
+    redistribute
     update-lorenz-and-gini
     tick
+  ]
+end
+
+to redistribute
+  if ticks mod 24 = 0 [
+    if tax and redistribute-tax  [
+      let redistribution-recipients-num count students with [sugar <= poverty-line]
+      if redistribution-recipients-num > 0 [
+        let redistribution-amount-per-person total-tax / redistribution-recipients-num
+        ask students with [sugar <= poverty-line] [
+          set total-tax total-tax - redistribution-amount-per-person
+          set sugar sugar + redistribution-amount-per-person
+        ]
+      ]
+    ]
+    set total-tax 0
   ]
 end
 
@@ -352,7 +369,7 @@ to invest-pressed
     ][
       if state = "chilling" [
         set state "investing"
-        set my-timer 10
+        set my-timer 24
         set next-task [-> invest]
         hubnet-send user-id "message" "investing..."
       ]
@@ -370,7 +387,7 @@ to invest
     set my-timer my-timer - 1
   ][
     let principal sugar * investment-percentage / 100
-    let investment-return principal * (1 + investment-rate-of-return)
+    let investment-return principal * (1 + investment-rate-of-return / 100)
     ifelse tax [
       set tax-paid investment-return * tax-rate / 100
       set total-tax total-tax + tax-paid
@@ -380,7 +397,7 @@ to invest
     ]
     set next-task [ -> chill ]
     set state "chilling"
-    hubnet-send user-id "message" "investment return this period: 100 sugar"
+    hubnet-send user-id "message" word "investment return this period: " word investment-return " sugar"
   ]
 end
 
@@ -469,7 +486,7 @@ minimum-sugar-endowment
 minimum-sugar-endowment
 0
 100
-9.0
+21.0
 1
 1
 NIL
@@ -560,7 +577,7 @@ SWITCH
 453
 tax
 tax
-0
+1
 1
 -1000
 
@@ -573,7 +590,7 @@ tax-rate-poor
 tax-rate-poor
 0
 100
-27.0
+24.0
 1
 1
 %
@@ -588,7 +605,7 @@ tax-rate-rich
 tax-rate-rich
 0
 100
-49.0
+29.0
 1
 1
 %
@@ -603,7 +620,7 @@ investment-rate-of-return
 investment-rate-of-return
 0
 100
-10.0
+50.0
 1
 1
 NIL
@@ -678,9 +695,9 @@ SWITCH
 536
 205
 569
-welfare
-welfare
-1
+redistribute-tax
+redistribute-tax
+0
 1
 -1000
 
