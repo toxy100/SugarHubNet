@@ -44,6 +44,7 @@ to setup
   clear-patches
   clear-drawing
   clear-output
+    listen-clients
   ask students
   [
     refresh-turtle
@@ -58,6 +59,18 @@ to setup
   update-lorenz-and-gini
   prepare-plots
   reset-ticks
+end
+
+to setup-patches
+  file-open "sugar-map.txt"
+  foreach sort patches [ p ->
+    ask p [
+      set max-psugar file-read
+      set psugar max-psugar
+      set pcolor gray
+    ]
+  ]
+  file-close
 end
 
 to prepare-plots
@@ -85,34 +98,6 @@ to prepare-plots
   set-plot-pen-color blue
   set-plot-x-range 0 100
   set-plot-y-range 0 1
-
-end
-
-to show-plots
-  set-current-plot "Wealth distribution"
-  histogram ([sugar] of students)
-
-  set-current-plot "Lorenz curve"
-  plot-pen-reset
-  set-plot-pen-interval 100 / count turtles
-  plot 0
-  foreach lorenz-points plot
-
-  set-current-plot "Gini index vs. time"
-  plot (gini-index-reserve / count turtles) * 2
-
-end
-
-to setup-patches
-  file-open "sugar-map.txt"
-  foreach sort patches [ p ->
-    ask p [
-      set max-psugar file-read
-      set psugar max-psugar
-      set pcolor gray
-    ]
-  ]
-  file-close
 end
 
 ;;;;;;;;;;;;;;Run Time Procedure;;;;;;;;;;;;;
@@ -131,18 +116,18 @@ to go
       ifelse generations [
         ifelse inheritance [
           get-older
-          if age > max-age [ hubnet-send user-id "message" "you died due to age and now you are reborn as a child of the dead person" wait 5 inherit stop]
-          if sugar < 0 [ hubnet-send user-id "message" "you died due to poverty and now you are reborn as a child of the dead person" wait 5 inherit stop]
+          if age > max-age [ hubnet-send user-id "message" "you died due to age and now you are reborn as a child of the dead person" inherit set generation generation + 1 set my-timer 12 set next-task [-> reborn] set state "reborn" stop]
+          if sugar <= 0 [ hubnet-send user-id "message" "you died due to poverty and now you are reborn as a child of the dead person" inherit set generation generation + 1 set my-timer 12 set next-task [-> reborn] set state "reborn" stop]
           run next-task
         ][
           get-older
-          if age > max-age [ hubnet-send user-id "message" "you died due to age and now you are reborn as a random new person" wait 5 refresh-turtle set generation generation + 1 stop]
-          if sugar < 0 [ hubnet-send user-id "message" "you died due to poverty and now you are reborn as a random new person" wait 5 refresh-turtle set generation generation + 1 stop]
+          if age > max-age [ hubnet-send user-id "message" "you died due to age and now you are reborn as a random new person" refresh-turtle set generation generation + 1 set my-timer 12 set next-task [-> reborn] set state "reborn" stop]
+          if sugar <= 0 [ hubnet-send user-id "message" "you died due to poverty and now you are reborn as a random new person" refresh-turtle set generation generation + 1 set my-timer 12 set next-task [-> reborn] set state "reborn" stop]
           run next-task
         ]
       ]
       [
-        if sugar < 0 [set sugar metabolism]; turtles don't die. they just stay alive
+        if sugar <= 0 [set sugar metabolism]; turtles don't die. they just stay alive
         run next-task          ;execute-command message-buffer
       ]
       send-info-to-clients
@@ -171,18 +156,54 @@ to redistribute
 end
 
 to inherit
-  move-to one-of neighbors
-  if sugar <= 0 [
+  move-to one-of neighbors with [not any? other turtles-here]
+  visualize-view-points
+  ifelse sugar <= 0 [
     set sugar minimum-sugar-endowment
+  ][
+    ifelse sugar - sugar * .1 > 0 [
+      set sugar sugar + (random (sugar * .1) - random (sugar * .1))
+    ][
+      set sugar sugar + random (sugar * .1)
+    ]
+  ]
+  ifelse vision = 1 [
+    set vision vision + random 2
+  ][
+    ifelse vision = 6 [
+      set vision vision - random 2
+    ][
+      set vision vision + (random 2 - random 2)
+    ]
+  ]
+  ifelse metabolism = 1 [
+    set metabolism metabolism + random 2
+  ][
+    ifelse metabolism = 4 [
+      set metabolism metabolism - random 2
+    ][
+      set metabolism metabolism + (random 2 - random 2)
+    ]
+  ]
+  ifelse max-age > 90 [
+    set max-age 100 - random 10
+  ][
+    ifelse max-age < 70 [
+      set max-age 60 + random 10
+    ][
+      set max-age max-age + (random 10 - random 10)
+    ]
   ]
   set accumulative-sugar 0
   set age 0
   set generation generation + 1
-  set vision-points nobody
+  set tax-paid 0
+  set investment-percentage 50
+;  set vision-points nobody
   set next-task [-> chill]
   set state "chilling"
-  hubnet-send-follow hubnet-message-source self 7
-  hubnet-send user-id "message" ""
+;  hubnet-send-follow hubnet-message-source self 7
+;  hubnet-send user-id "message" ""
   send-info-to-clients
 end
 
@@ -191,10 +212,10 @@ to get-older
   hubnet-send user-id "age" age
 end
 
-to reborn-random
-  set generation generation + 1
-  hubnet-send user-id "message" "you died are reborn as a random new person"
-end
+;to reborn-random
+;  set generation generation + 1
+;  hubnet-send user-id "message" "you died are reborn as a random new person"
+;end
 
 ;;;;;;;;;;;NubNet Procedures;;;;;;;;;;;;;
 
@@ -242,7 +263,6 @@ to refresh-turtle
   set next-task [-> chill]
   set state "chilling"
   hubnet-send-follow hubnet-message-source self 7
-  hubnet-send user-id "message" ""
   send-info-to-clients
 end
 
@@ -278,7 +298,6 @@ to send-info-to-clients
   hubnet-send user-id "rate-of-return" investment-rate-of-return
   hubnet-send user-id "tax-rate" tax-rate
   hubnet-send user-id "current-tax-paid" tax-paid
-
 end
 
 to-report tax-rate
@@ -308,6 +327,14 @@ to visualize-view-points
 end
 
 to chill
+end
+
+to reborn
+  ifelse my-timer > 0 [
+    set my-timer my-timer - 1
+  ][
+    set state "chilling"
+  ]
 end
 
 to execute-move [new-heading]
@@ -407,7 +434,7 @@ end
 
 to invest-pressed
   ifelse investment [
-  ifelse sugar > poverty-line [
+  ifelse sugar >= poverty-line [
     ifelse state = "investing" [
       hubnet-send user-id "message" "you are already investing"
     ][
@@ -475,6 +502,20 @@ to update-lorenz-and-gini
     (index / num-people) -
     (wealth-sum-so-far / total-wealth)
   ]
+end
+
+to show-plots
+  set-current-plot "Wealth distribution"
+  histogram ([sugar] of students)
+
+  set-current-plot "Lorenz curve"
+  plot-pen-reset
+  set-plot-pen-interval 100 / count turtles
+  plot 0
+  foreach lorenz-points plot
+
+  set-current-plot "Gini index vs. time"
+  plot (gini-index-reserve / count turtles) * 2
 end
 
 to-report random-in-range [low high]
@@ -590,7 +631,7 @@ SWITCH
 205
 inheritance
 inheritance
-1
+0
 1
 -1000
 
@@ -673,9 +714,9 @@ NIL
 HORIZONTAL
 
 BUTTON
-210
+209
 574
-315
+314
 607
 show-world
 ask patches [set pcolor true-color]
@@ -690,9 +731,9 @@ NIL
 1
 
 BUTTON
-321
+320
 574
-421
+420
 607
 hide-world
 ask patches [set pcolor gray]
@@ -749,9 +790,9 @@ redistribute-tax
 
 BUTTON
 520
-575
+574
 639
-608
+607
 hide-students
 ask turtles [ht]
 NIL
@@ -766,9 +807,9 @@ NIL
 
 BUTTON
 643
-575
+574
 768
-608
+607
 show-students
 ask turtles [st]
 NIL
@@ -782,10 +823,10 @@ NIL
 1
 
 PLOT
-775
-172
-975
-322
+772
+192
+1024
+380
 Lorenz curve
 Pop %
 Wealth %
@@ -799,10 +840,10 @@ true
 PENS
 
 PLOT
-777
-330
-977
-480
+773
+384
+1025
+568
 Gini index vs. time
 Time
 Gini
@@ -816,10 +857,10 @@ false
 PENS
 
 PLOT
-773
+771
 11
-973
-161
+1024
+188
 Wealth distribution
 NIL
 NIL
