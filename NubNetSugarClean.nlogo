@@ -220,7 +220,6 @@ end
 to send-info-to-clients
   hubnet-send-override hubnet-message-source patch-here "pcolor" [true-color]
 
-;  hubnet-send user-id "user-id" user-id
   hubnet-send user-id "vision" vision
   hubnet-send user-id "metabolism" metabolism
   hubnet-send user-id "age" age
@@ -387,17 +386,19 @@ to invest
     set my-timer my-timer - 1
   ][
     let principal sugar * investment-percentage / 100
-    let investment-return principal * (1 + investment-rate-of-return / 100)
+    let investment-return precision (principal * (1 + investment-rate-of-return / 100)) 2
     ifelse tax [
-      set tax-paid investment-return * tax-rate / 100
+      set tax-paid precision (investment-return * tax-rate / 100) 2
       set total-tax total-tax + tax-paid
-      set sugar sugar - principal + investment-return - tax-paid
+      set sugar precision (sugar - principal + investment-return - tax-paid) 2
+      set accumulative-sugar accumulative-sugar + precision (investment-return - tax-paid) 2
     ][
-      set sugar sugar - principal + investment-return
+      set sugar precision (sugar - principal + investment-return) 2
+      set accumulative-sugar accumulative-sugar + precision (investment-return) 2
     ]
     set next-task [ -> chill ]
     set state "chilling"
-    hubnet-send user-id "message" word "investment return this period: " word investment-return " sugar"
+    hubnet-send user-id "message" word "investment return this period: " word precision (investment-return) 2 " sugar"
   ]
 end
 
