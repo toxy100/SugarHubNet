@@ -56,7 +56,51 @@ to setup
   ]
   setup-patches
   update-lorenz-and-gini
+  prepare-plots
   reset-ticks
+end
+
+to prepare-plots
+
+  set-current-plot "Wealth distribution"
+  create-temporary-plot-pen "default"
+  set-plot-pen-mode 1
+  set-histogram-num-bars 10
+  set-plot-x-range 0 (max [sugar] of turtles)
+  set-plot-pen-interval ((max [sugar] of turtles) / 10)
+
+  set-current-plot "Lorenz curve"
+  create-temporary-plot-pen "equal"
+  set-plot-pen-color black
+  ;; draw a straight line from lower left to upper right
+  set-current-plot-pen "equal"
+  set-plot-pen-interval 100
+  plot 0
+  plot 100
+  create-temporary-plot-pen "lorenz"
+  set-plot-pen-color red
+
+  set-current-plot "Gini index vs. time"
+  create-temporary-plot-pen "default"
+  set-plot-pen-color blue
+  set-plot-x-range 0 100
+  set-plot-y-range 0 1
+
+end
+
+to show-plots
+  set-current-plot "Wealth distribution"
+  histogram ([sugar] of students)
+
+  set-current-plot "Lorenz curve"
+  plot-pen-reset
+  set-plot-pen-interval 100 / count turtles
+  plot 0
+  foreach lorenz-points plot
+
+  set-current-plot "Gini index vs. time"
+  plot (gini-index-reserve / count turtles) * 2
+
 end
 
 to setup-patches
@@ -105,6 +149,7 @@ to go
     ]
     redistribute
     update-lorenz-and-gini
+    show-plots
     tick
   ]
 end
@@ -219,7 +264,6 @@ end
 
 to send-info-to-clients
   hubnet-send-override hubnet-message-source patch-here "pcolor" [true-color]
-
 
   hubnet-send user-id "vision" vision
   hubnet-send user-id "metabolism" metabolism
@@ -488,7 +532,7 @@ minimum-sugar-endowment
 minimum-sugar-endowment
 0
 100
-21.0
+23.0
 1
 1
 NIL
@@ -736,6 +780,57 @@ NIL
 NIL
 NIL
 1
+
+PLOT
+775
+172
+975
+322
+Lorenz curve
+Pop %
+Wealth %
+0.0
+100.0
+0.0
+100.0
+false
+true
+"" ""
+PENS
+
+PLOT
+777
+330
+977
+480
+Gini index vs. time
+Time
+Gini
+0.0
+100.0
+0.0
+1.0
+true
+false
+"" ""
+PENS
+
+PLOT
+773
+11
+973
+161
+Wealth distribution
+NIL
+NIL
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
 
 @#$#@#$#@
 ## WHAT IS IT?
