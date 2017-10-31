@@ -521,6 +521,7 @@ to go-to-school-pressed
           set state "schooling"
           set my-timer 48
           set sugar sugar - tuition
+            set shape "book"
           set next-task [-> school]
           hubnet-send user-id "message" "at school..."
         ][
@@ -540,6 +541,7 @@ end
 
 to school
   ifelse my-timer > 0 [
+
     set my-timer my-timer - 1
   ][
       set vision vision + 1
@@ -547,6 +549,7 @@ to school
       hubnet-send user-id "message" "You graduated with expanded vision"
       set next-task [-> chill]
       set state "chilling"
+    set shape "default"
   ]
 end
 
@@ -573,6 +576,7 @@ end
 
 to invest
   ifelse my-timer > 0 [
+    set shape "money"
     set my-timer my-timer - 1
   ][
     let principal sugar * investment-percentage / 100
@@ -588,6 +592,7 @@ to invest
     ]
     set next-task [ -> chill ]
     set state "chilling"
+    set shape "default"
     hubnet-send user-id "message" word "investment return this period: " word precision (investment-return) 2 " sugar"
   ]
 end
@@ -771,7 +776,7 @@ SWITCH
 296
 investment
 investment
-1
+0
 1
 -1000
 
@@ -874,7 +879,7 @@ poverty-line
 poverty-line
 0
 2000
-1800.0
+1000.0
 50
 1
 sugar
@@ -889,7 +894,7 @@ tuition
 tuition
 0
 2400
-24.0
+0.0
 24
 1
 sugar
@@ -1044,6 +1049,21 @@ true
 0
 Polygon -7500403 true true 150 0 0 150 105 150 105 293 195 293 195 150 300 150
 
+book
+false
+0
+Polygon -7500403 true true 30 195 150 255 270 135 150 75
+Polygon -7500403 true true 30 135 150 195 270 75 150 15
+Polygon -7500403 true true 30 135 30 195 90 150
+Polygon -1 true false 39 139 39 184 151 239 156 199
+Polygon -1 true false 151 239 254 135 254 90 151 197
+Line -7500403 true 150 196 150 247
+Line -7500403 true 43 159 138 207
+Line -7500403 true 43 174 138 222
+Line -7500403 true 153 206 248 113
+Line -7500403 true 153 221 248 128
+Polygon -1 true false 159 52 144 67 204 97 219 82
+
 box
 false
 0
@@ -1194,6 +1214,110 @@ line half
 true
 0
 Line -7500403 true 150 0 150 150
+
+money
+true
+1
+Rectangle -2674135 true true 180 0 195 300
+Rectangle -2674135 true true 105 0 120 300
+Rectangle -2674135 true true 240 75 255 90
+Rectangle -2674135 true true 225 60 240 75
+Rectangle -2674135 true true 135 60 150 75
+Rectangle -2674135 true true 90 45 105 60
+Rectangle -2674135 true true 120 45 135 60
+Rectangle -2674135 true true 60 225 75 240
+Rectangle -2674135 true true 45 75 60 90
+Rectangle -2674135 true true 60 75 75 90
+Rectangle -2674135 true true 75 60 90 75
+Rectangle -2674135 true true 90 60 105 75
+Rectangle -2674135 true true 210 60 225 75
+Rectangle -2674135 true true 120 60 135 75
+Rectangle -2674135 true true 150 60 165 75
+Rectangle -2674135 true true 165 60 180 75
+Rectangle -2674135 true true 60 90 75 105
+Rectangle -2674135 true true 45 90 60 105
+Rectangle -2674135 true true 240 90 255 105
+Rectangle -2674135 true true 225 90 240 105
+Rectangle -2674135 true true 225 75 240 90
+Rectangle -2674135 true true 210 45 225 60
+Rectangle -2674135 true true 195 60 210 75
+Rectangle -2674135 true true 195 45 210 60
+Rectangle -2674135 true true 165 45 180 60
+Rectangle -2674135 true true 150 45 165 60
+Rectangle -2674135 true true 60 210 75 225
+Rectangle -2674135 true true 45 210 60 225
+Rectangle -2674135 true true 75 225 90 240
+Rectangle -2674135 true true 90 225 105 240
+Rectangle -2674135 true true 120 225 135 240
+Rectangle -2674135 true true 135 225 150 240
+Rectangle -2674135 true true 150 225 165 240
+Rectangle -2674135 true true 165 225 180 240
+Rectangle -2674135 true true 195 225 210 240
+Rectangle -2674135 true true 210 225 225 240
+Rectangle -2674135 true true 240 195 255 210
+Rectangle -2674135 true true 225 210 240 225
+Rectangle -2674135 true true 225 195 240 210
+Rectangle -2674135 true true 240 180 255 195
+Rectangle -2674135 true true 225 180 240 195
+Rectangle -2674135 true true 240 165 255 180
+Rectangle -2674135 true true 225 165 240 180
+Rectangle -2674135 true true 210 150 225 165
+Rectangle -2674135 true true 225 150 240 165
+Rectangle -2674135 true true 195 150 210 165
+Rectangle -2674135 true true 225 135 240 150
+Rectangle -2674135 true true 210 135 225 150
+Rectangle -2674135 true true 60 240 75 255
+Rectangle -2674135 true true 90 135 105 150
+Rectangle -2674135 true true 195 135 210 150
+Rectangle -2674135 true true 45 225 60 240
+Rectangle -2674135 true true 165 150 180 165
+Rectangle -2674135 true true 150 150 165 165
+Rectangle -2674135 true true 135 150 150 165
+Rectangle -2674135 true true 120 150 135 165
+Rectangle -2674135 true true 90 150 105 165
+Rectangle -2674135 true true 75 150 90 165
+Rectangle -2674135 true true 60 150 75 165
+Rectangle -2674135 true true 45 135 60 150
+Rectangle -2674135 true true 60 135 75 150
+Rectangle -2674135 true true 75 135 90 150
+Rectangle -2674135 true true 60 120 75 135
+Rectangle -2674135 true true 45 120 60 135
+Rectangle -2674135 true true 60 105 75 120
+Rectangle -2674135 true true 45 105 60 120
+Rectangle -2674135 true true 135 150 150 165
+Rectangle -2674135 true true 135 150 150 165
+Rectangle -2674135 true true 135 150 150 165
+Rectangle -2674135 true true 135 150 150 165
+Rectangle -2674135 true true 135 150 150 165
+Rectangle -2674135 true true 135 150 150 165
+Rectangle -2674135 true true 135 150 150 165
+Rectangle -2674135 true true 135 150 150 165
+Rectangle -2674135 true true 240 60 255 75
+Rectangle -2674135 true true 225 45 240 60
+Rectangle -2674135 true true 240 150 255 165
+Rectangle -2674135 true true 240 225 255 240
+Rectangle -2674135 true true 240 210 255 225
+Rectangle -2674135 true true 225 240 240 255
+Rectangle -2674135 true true 60 45 75 60
+Rectangle -2674135 true true 45 60 60 75
+Rectangle -2674135 true true 60 60 75 75
+Rectangle -2674135 true true 75 45 90 60
+Rectangle -2674135 true true 135 45 150 60
+Rectangle -2674135 true true 165 135 180 150
+Rectangle -2674135 true true 150 135 165 150
+Rectangle -2674135 true true 135 135 150 150
+Rectangle -2674135 true true 120 135 135 150
+Rectangle -2674135 true true 225 225 240 240
+Rectangle -2674135 true true 210 240 225 255
+Rectangle -2674135 true true 195 240 210 255
+Rectangle -2674135 true true 165 240 180 255
+Rectangle -2674135 true true 150 240 165 255
+Rectangle -2674135 true true 135 240 150 255
+Rectangle -2674135 true true 120 240 135 255
+Rectangle -2674135 true true 90 240 105 255
+Rectangle -2674135 true true 75 240 90 255
+Rectangle -2674135 true true 165 0 180 300
+Rectangle -2674135 true true 120 0 135 300
 
 pentagon
 false
