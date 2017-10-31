@@ -280,7 +280,7 @@ to inherit
   ]
   set accumulative-sugar 0
   set age 0
-  set generation generation + 1
+;  set generation generation + 1
   set tax-paid 0
   set investment-percentage 50
 ;  set vision-points nobody
