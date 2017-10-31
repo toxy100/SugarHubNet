@@ -438,7 +438,7 @@ to reborn
   ifelse my-timer > 0 [
     set shape "x"
     set my-timer my-timer - 1
-    hubnet-send user-id "count-down" my-timer
+
   ][
 ;    set state "chilling"
 ;    set next-task [ -> chill ]
