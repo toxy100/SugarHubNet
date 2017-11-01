@@ -45,6 +45,7 @@ to setup
   clear-patches
   clear-drawing
   clear-output
+  clear-plots
 
   setup-patches
 
@@ -57,8 +58,8 @@ to setup
 
   ask students
   [
+
     refresh-turtle
-    set vision random-in-range 1 6
     set generation 1
     hubnet-send user-id "message" "Welcome to SugarScape!"
   ]
@@ -68,7 +69,6 @@ to setup
   ]
 
   update-lorenz-and-gini
-  prepare-plots
 
   reset-ticks
 end
@@ -85,25 +85,13 @@ to setup-patches
   file-close
 end
 
-to prepare-plots
-  clear-all-plots
-
+to clear-plots
+  set-current-plot "Wealth distribution"
+  clear-plot
   set-current-plot "Lorenz curve"
-  create-temporary-plot-pen "equal"
-  set-plot-pen-color black
-  ;; draw a straight line from lower left to upper right
-  set-current-plot-pen "equal"
-  set-plot-pen-interval 100
-  plot 0
-  plot 100
-  create-temporary-plot-pen "lorenz"
-  set-plot-pen-color red
-
+  clear-plot
   set-current-plot "Gini index vs. time"
-  create-temporary-plot-pen "default"
-  set-plot-pen-color blue
-  set-plot-x-range 0 100
-  set-plot-y-range 0 1
+  clear-plot
 end
 
 ;;;;;;;;;;;;;;Run Time Procedure;;;;;;;;;;;;;
@@ -160,7 +148,6 @@ to go
     ];;ask students
     redistribute
     update-lorenz-and-gini
-    show-plots
     tick
   ]
 end
@@ -278,9 +265,10 @@ to create-new-student
     set label-color black
     set label user-id
     set color red
-    refresh-turtle
-    set vision random-in-range 1 6
+;    set vision random-in-range 1 6
     set generation 1
+    refresh-turtle
+
     hubnet-send user-id "message" word "You are Generation " generation
   ]
 end
@@ -557,17 +545,6 @@ to update-lorenz-and-gini
   ]
 end
 
-to show-plots
-  set-current-plot "Lorenz curve"
-  plot-pen-reset
-  set-plot-pen-interval 100 / count turtles
-  plot 0
-  foreach lorenz-points plot
-
-  set-current-plot "Gini index vs. time"
-  plot (gini-index-reserve / count turtles) * 2
-end
-
 to-report random-in-range [low high]
   report low + random (high - low + 1)
 end
@@ -806,7 +783,7 @@ poverty-line
 poverty-line
 0
 2000
-1000.0
+1150.0
 50
 1
 sugar
@@ -834,7 +811,7 @@ SWITCH
 569
 redistribute-tax
 redistribute-tax
-1
+0
 1
 -1000
 
@@ -923,7 +900,7 @@ NIL
 10.0
 true
 false
-"" "set-histogram-num-bars 10\nif any? students [ \n  set-plot-x-range 0 (max [sugar] of students) + ceiling (max [sugar] of students / 9)\n  set-plot-pen-interval ((max [sugar] of students / 10))\n]"
+"" "set-histogram-num-bars 10\nif any? students [ \n  set-plot-x-range 0 (max [sugar] of students) + ceiling (max [sugar] of students / 10)\n  set-plot-pen-interval ((max [sugar] of students / 10))\n]"
 PENS
 "default" 1.0 1 -16777216 true "" "if any? students [ histogram ([sugar] of students) ]"
 
