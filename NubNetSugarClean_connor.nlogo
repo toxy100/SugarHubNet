@@ -59,9 +59,8 @@ to setup
   [
     refresh-turtle
     set vision random-in-range 1 6
-
-    hubnet-send user-id "message" "Welcome to SugarScape!"
     set generation 1
+    hubnet-send user-id "message" "Welcome to SugarScape!"
   ]
   if maximum-sugar-endowment <= minimum-sugar-endowment [
     user-message "Oops: the maximum-sugar-endowment must be larger than the minimum-sugar-endowment"
@@ -88,12 +87,6 @@ end
 
 to prepare-plots
   clear-all-plots
-;  set-current-plot "Wealth distribution"
-;  auto-plot-on
-;  create-temporary-plot-pen "default"
-;  set-plot-pen-mode 1
-;  set-histogram-num-bars 10
-;  set-plot-pen-interval ((max [sugar] of turtles) / 10)
 
   set-current-plot "Lorenz curve"
   create-temporary-plot-pen "equal"
@@ -126,72 +119,45 @@ to go
       patch-recolor
     ]
     ask students [
-      ifelse state = "reborn" [run next-task][
+      ifelse state = "reborn" [
+        run next-task
+      ];; state = reborn
+      [
       ifelse generations [
         ifelse inheritance [
           get-older
           if age > max-age [
             set death-cause "inheritance-age"
-;            set state "dead"
             update-reborn-turtle death-cause
-;            hubnet-send user-id "message" "you died due to aging and now you are reborn as a child of the dead person"
-;            inherit
-;            set generation generation + 1
-;            set my-timer 12
-;            set next-task [-> reborn]
-;            set state "reborn"
-;            stop
           ]
           if sugar <= 0 [
             set death-cause "inheritance-sugar"
-;            set state "dead"
             update-reborn-turtle death-cause
-;            hubnet-send user-id "message" "you died due to poverty and now you are reborn as a child of the dead person"
-;            inherit
-;            set generation generation + 1
-;            set my-timer 12
-;            set next-task [-> reborn]
-;            set state "reborn"
-;            stop
           ]
           run next-task
-        ][
+        ];; inheritance switch is on
+          [
           get-older
           ifelse age > max-age [
             set death-cause "random-age"
- ;           set state "dead"
             update-reborn-turtle death-cause
-;            hubnet-send user-id "message" "you died due to age and now you are reborn as a random new person"
-;            refresh-turtle
-;            set generation generation + 1
-;            set my-timer 12
-;            set next-task [-> reborn]
-;            set state "reborn"
           ]
           [
             if sugar <= 0 [
               set death-cause "random-sugar"
-;              set state "dead"
               update-reborn-turtle death-cause
-;              hubnet-send user-id "message" "you died due to poverty and now you are reborn as a random new person"
-;              refresh-turtle
-;              set generation generation + 1
-;              set my-timer 12
-;              set next-task [-> reborn]
-;              set state "reborn"
             ]
           ]
-
           run next-task
-        ]
-      ]
+        ];; inheritance switch is off
+      ];; generations switch is on
       [
         if sugar <= 0 [set sugar metabolism]; turtles don't die. they just stay alive
         run next-task          ;execute-command message-buffer
-      ]
+      ];; generations switch if off
       send-info-to-clients
-    ]
-    ]
+    ];; state != reborn
+    ];;ask students
     redistribute
     update-lorenz-and-gini
     show-plots
@@ -202,21 +168,16 @@ end
 to update-reborn-turtle [death-condition]
   if death-condition = "inheritance-age" [
     hubnet-send user-id "message" "you died due to aging and now you are reborn as a child of the dead person"
-;    inherit
   ]
   if death-condition = "inheritance-sugar" [
     hubnet-send user-id "message" "you died due to poverty and now you are reborn as a child of the dead person"
-;    inherit
   ]
   if death-condition = "random-age" [
     hubnet-send user-id "message" "you died due to aging and now you are reborn as a random new person"
-;    refresh-turtle
   ]
   if death-condition = "random-sugar" [
     hubnet-send user-id "message" "you died due to poverty and now you are reborn as a random new person"
-;   refresh-turtle
   ]
-;  set generation generation + 1
   set my-timer 12
   set next-task [-> reborn]
   set state "reborn"
@@ -280,15 +241,11 @@ to inherit
   ]
   set accumulative-sugar 0
   set age 0
-;  set generation generation + 1
   set tax-paid 0
   set investment-percentage 50
-;  set vision-points nobody
   set death-cause ""
   set next-task [-> chill]
   set state "chilling"
-;  hubnet-send-follow hubnet-message-source self 7
-;  hubnet-send user-id "message" ""
   send-info-to-clients
 end
 
@@ -296,11 +253,6 @@ to get-older
   if ticks mod 24 = 0 [set age age + 1]
   hubnet-send user-id "age" age
 end
-
-;to reborn-random
-;  set generation generation + 1
-;  hubnet-send user-id "message" "you died are reborn as a random new person"
-;end
 
 ;;;;;;;;;;;NubNet Procedures;;;;;;;;;;;;;
 
@@ -313,9 +265,7 @@ to listen-clients
     [
       ifelse hubnet-exit-message?
       [ remove-student ]
-      [ ask students with [user-id = hubnet-message-source]
-        ;[ ask students with [user-id = hubnet-message-source] [set message-buffer hubnet-message-tag ]];
-        [ execute-command hubnet-message-tag ]
+      [ ask students with [user-id = hubnet-message-source][ execute-command hubnet-message-tag ]
       ]
     ]
   ]
@@ -402,26 +352,11 @@ end
 
 to calculate-view-points [dist] ; turtle procedure
 
-  set vision-points patches in-radius dist with [ (pxcor = [pxcor] of [patch-here] of myself) or (pycor = [pycor] of [patch-here] of myself) ]
+  set vision-points patches in-radius dist with [
+    (pxcor = [pxcor] of [patch-here] of myself)
+    or (pycor = [pycor] of [patch-here] of myself)
+  ]
 
-;  foreach (range 1 (dist + 1)) [ n ->
-;   set vision-points (patch-set vision-points
-;      patch-at 0 n
-;      patch-at n 0
-;      patch-at 0 (- n)
-;      patch-at (- n) 0)
-;  ]
-;  if dist > 0 [
-;
-;    set vision-points (patch-set
-;      vision-points
-;      patch-at 0 dist
-;      patch-at dist 0
-;      patch-at 0 (- dist)
-;      patch-at (- dist) 0
-;    )
-;    calculate-view-points (dist - 1)
-;  ]
 end
 
 to visualize-view-points ; student procedure
@@ -440,22 +375,17 @@ to reborn
     set my-timer my-timer - 1
     hubnet-send user-id "count-down" my-timer
   ][
-;    set state "chilling"
-;    set next-task [ -> chill ]
 
     ifelse death-cause = "inheritance-age" or death-cause = "inheritance-sugar" [inherit][
       ifelse death-cause = "random-age" or death-cause = "random-sugar" [refresh-turtle][]
     ]
 
-;    set death-cause ""
     set generation generation + 1
-;    set vision random-in-range 1 6;;;;need to add a condition to account for the inherit death
     set shape "default"
   ]
 end
 
 to execute-move [new-heading] ; student procedure
-  ; "chilling" = move otherwise you can't
   ifelse state = "chilling" [
     set heading new-heading
     fd 1
@@ -628,9 +558,6 @@ to update-lorenz-and-gini
 end
 
 to show-plots
-;  set-current-plot "Wealth distribution"
-;  histogram ([sugar] of students)
-
   set-current-plot "Lorenz curve"
   plot-pen-reset
   set-plot-pen-interval 100 / count turtles
@@ -961,6 +888,8 @@ false
 true
 "" ""
 PENS
+"equal" 100.0 0 -7500403 true ";; draw a straight line from lower left to upper right\nset-current-plot-pen \"equal\"\nplot 0\nplot 100" ""
+"lorenz" 1.0 0 -2674135 true "" "plot-pen-reset\nif any? students [ \nset-plot-pen-interval 100 / count turtles\n]\nplot 0\nforeach lorenz-points plot"
 
 PLOT
 773
@@ -978,6 +907,7 @@ true
 false
 "" ""
 PENS
+"default" 1.0 0 -13345367 true "" "if any? students [ \nplot (gini-index-reserve / count turtles) * 2\n]"
 
 PLOT
 771
@@ -993,7 +923,7 @@ NIL
 10.0
 true
 false
-"" "set-histogram-num-bars 10\nif any? students [ \n  set-plot-x-range 0 (max [sugar] of students)\n  set-plot-pen-interval ((max [sugar] of students / 10))\n]"
+"" "set-histogram-num-bars 10\nif any? students [ \n  set-plot-x-range 0 (max [sugar] of students) + ceiling (max [sugar] of students / 10)\n  set-plot-pen-interval ((max [sugar] of students / 10))\n]"
 PENS
 "default" 1.0 1 -16777216 true "" "if any? students [ histogram ([sugar] of students) ]"
 
