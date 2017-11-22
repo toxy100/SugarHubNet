@@ -28,7 +28,6 @@ students-own
   accumulative-sugar
   next-task  ;; the next task a turtle will run. Can be either harvest, invest, go-to-school, or chill.
   state  ;; the current state a turtle is in. Used to switch between tasks. Can be either harvesting, investing, schooling, or chilling.
-;  message-buffer
   investment-percentage
   tax-paid
   my-timer  ;; a countdown timer to disable movements when in a certain state, such as at school
@@ -97,7 +96,7 @@ end
 
 to go
   listen-clients
-  every 0.1 [
+  every 0.05 [
     if not any? students [
       stop
     ]
@@ -362,8 +361,12 @@ to reborn
     hubnet-send user-id "count-down" my-timer
   ][
 
-    ifelse death-cause = "inheritance-age" or death-cause = "inheritance-sugar" [inherit][
-      ifelse death-cause = "random-age" or death-cause = "random-sugar" [refresh-turtle][]
+    ifelse death-cause = "inheritance-age" or death-cause = "inheritance-sugar" [
+      inherit
+    ][
+      ifelse death-cause = "random-age" or death-cause = "random-sugar" [
+        refresh-turtle
+      ][];do nothing if death-cause is not expected.
     ]
 
     set generation generation + 1
@@ -689,7 +692,7 @@ SWITCH
 453
 tax
 tax
-1
+0
 1
 -1000
 
@@ -890,8 +893,8 @@ PLOT
 1024
 188
 Wealth distribution
-NIL
-NIL
+Wealth
+Count
 0.0
 10.0
 0.0
@@ -1363,7 +1366,7 @@ false
 Polygon -7500403 true true 270 75 225 30 30 225 75 270
 Polygon -7500403 true true 30 75 75 30 270 225 225 270
 @#$#@#$#@
-NetLogo 6.0.2
+NetLogo 6.0.3-M1
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@
