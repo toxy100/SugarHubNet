@@ -34,6 +34,8 @@ students-own
   death-cause ;; the cause of turtle's death
 ]
 
+
+
 ;;;;;;;;;;;;;;;;;; Setup Procedures ;;;;;;;;;;;;;;;
 
 to startup
@@ -72,15 +74,19 @@ to setup
 end
 
 to setup-patches
-  file-open "sugar-map.txt"
-  foreach sort patches [ p ->
-    ask p [
-      set max-psugar file-read
-      set psugar max-psugar
-      set pcolor gray
+  let i 2
+  let j 3
+  let k 4
+  while [k > 0 ][
+    ask (patch-set patch 6 6 patch -6 -6) [
+      ask patches with [psugar = 0] in-radius i [
+set psugar k set max-psugar psugar ]
     ]
+    set i i + j
+    set j j + 1
+    set k k - 1
   ]
-  file-close
+  ask patches [set pcolor gray]
 end
 
 to clear-plots
@@ -560,25 +566,25 @@ GRAPHICS-WINDOW
 569
 -1
 -1
-11.0
+17.742
 1
-12
-1
-1
-1
-0
+10
 1
 1
 1
 0
-49
 0
-49
+0
+1
+-15
+15
+-15
+15
 0
 0
 1
 ticks
-30.0
+2.0
 
 SLIDER
 5
@@ -907,6 +913,24 @@ false
 "" "set-histogram-num-bars 10\nif any? students [ \n  set-plot-x-range 0 (max [sugar] of students) + ceiling (max [sugar] of students / 10)\n  set-plot-pen-interval ((max [sugar] of students / 10))\n]"
 PENS
 "default" 1.0 1 -16777216 true "" "if any? students [ histogram ([sugar] of students) ]"
+
+PLOT
+773
+614
+1025
+797
+plot 1
+NIL
+NIL
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 1 -16777216 true "" "histogram [psugar] of patches"
 
 @#$#@#$#@
 ## WHAT IS IT?
@@ -1447,10 +1471,10 @@ VIEW
 1
 1
 1
-0
-49
-0
-49
+-15
+15
+-15
+15
 
 MONITOR
 6
