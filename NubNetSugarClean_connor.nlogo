@@ -377,13 +377,16 @@ end
 to execute-move [new-heading] ; student procedure
   ifelse state = "chilling" [
     set heading new-heading
-    fd 1
+    if not any? turtles-on patch-ahead 1
+    [
+      fd 1
     hubnet-send user-id "message" "moving..."
     visualize-view-points
     set sugar sugar - 1
     send-info-to-clients
     hubnet-send user-id "message" ""
-    stop
+      stop
+    ]
   ][
     hubnet-send user-id "message" word "can't move because you are " state
   ]
